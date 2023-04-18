@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      target: dev-envs
+    container_name: dynamodb-tools
+    ports:
+      - "8002:80"
+    environment:
+      - DATA_PATH=/examples/basic
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - dynamodb
+
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin
+    ports:
+      - "8001:8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=MY_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=MY_SECRET_ACCESS_KEY
+    depends_on:
+      - dynamodb
+
+  dynamodb:
+    image: amazon/dynamodb-local
