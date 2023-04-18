@@ -1,0 +1,37 @@
+{
+  "TableName": "notable_people",
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "last_name",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "first_name",
+      "AttributeType": "S"
+    }
+  ],
+  "GlobalSecondaryIndexUpdates": [
+    {
+      "Create": {
+        "IndexName": "last_name_idx",
+        "KeySchema": [
+          {
+            "AttributeName": "last_name",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "first_name",
+            "KeyType": "RANGE"
+          }
+        ],
+        "Projection": {
+          "ProjectionType": "ALL"
+        },
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 1,
+          "WriteCapacityUnits": 1
+        }
+      }
+    }
+  ]
+}
