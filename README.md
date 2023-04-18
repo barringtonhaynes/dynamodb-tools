@@ -90,7 +90,8 @@ The following environment variables are available:
 | AWS_SECRET_ACCESS_KEY    | MY_SECRET_ACCESS_KEY | The AWS secret access key   |
 | AWS_SESSION_TOKEN        | NULL                 | The AWS session token       |
 
-**Warning** AWS credentials are not recommended to be used in production. This container is
+> **Warning**
+> AWS credentials are not recommended to be used in production. This container is
 intended to be used in local development environments only.
 
 ### Create tables
@@ -118,7 +119,8 @@ The task will look for the following file extensions, respectively: *.csv*, *.dy
 
 ### Load data
 
-**Note**: Although the functionality to load data through a UI is currently not implemented, the API can be accessed at http://localhost:8002/docs or http://localhost:8002/redoc. These endpoints allow you to monitor the health of the container, view the status of the loaded data, list and load data into the mounted /data/load folder.
+> **Note**
+> Although the functionality to load data through a UI is currently not implemented, the API can be accessed at http://localhost:8002/docs or http://localhost:8002/redoc. These endpoints allow you to monitor the health of the container, view the status of the loaded data, list and load data into the mounted /data/load folder.
 
 File support is the same as the seed data.
 
@@ -170,4 +172,5 @@ Alternatively, you can prefix the `start_dev` command with the environment varia
 LOG_LEVEL=DEBUG ./start_dev
 ```
 
-**Note** this feature is currently in beta. See  the [official documentation](https://docs.docker.com/desktop/dev-environments) for further information.
+> **Note**
+> This feature is currently in beta. See  the [official documentation](https://docs.docker.com/desktop/dev-environments) for further information.
