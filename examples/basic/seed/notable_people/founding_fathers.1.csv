@@ -1,0 +1,6 @@
+pk,sk,first_name,last_name,email
+csv,ff#000,John,Adams,john.adams@example.com
+csv,ff#001,Samuel,Adams,samuel.adams@example.com
+csv,ff#002,Benjamin,Franklin,benjamin.franklin@example.com
+csv,ff#003,Alexander,Hamilton,alexander.hamilton@example.com
+csv,ff#004,John,Hancock,john.hancock@example.com

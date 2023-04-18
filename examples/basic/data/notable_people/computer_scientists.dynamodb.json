@@ -1,0 +1,342 @@
+[
+  {
+    "first_name": {
+      "S": "Alan"
+    },
+    "last_name": {
+      "S": "Turing"
+    },
+    "email": {
+      "S": "alan.turing@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#000"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Grace"
+    },
+    "last_name": {
+      "S": "Hopper"
+    },
+    "email": {
+      "S": "grace.hopper@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#001"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Ada"
+    },
+    "last_name": {
+      "S": "Lovelace"
+    },
+    "email": {
+      "S": "ada.lovelace@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#002"
+    }
+  },
+  {
+    "first_name": {
+      "S": "John"
+    },
+    "last_name": {
+      "S": "von Neumann"
+    },
+    "email": {
+      "S": "john.vonneumann@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#003"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Edsger"
+    },
+    "last_name": {
+      "S": "Dijkstra"
+    },
+    "email": {
+      "S": "edsger.dijkstra@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#004"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Claude"
+    },
+    "last_name": {
+      "S": "Shannon"
+    },
+    "email": {
+      "S": "claude.shannon@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#005"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Donald"
+    },
+    "last_name": {
+      "S": "Knuth"
+    },
+    "email": {
+      "S": "donald.knuth@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#006"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Barbara"
+    },
+    "last_name": {
+      "S": "Liskov"
+    },
+    "email": {
+      "S": "barbara.liskov@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#007"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Vint"
+    },
+    "last_name": {
+      "S": "Cerf"
+    },
+    "email": {
+      "S": "vint.cerf@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#008"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Tim"
+    },
+    "last_name": {
+      "S": "Berners-Lee"
+    },
+    "email": {
+      "S": "tim.berners-lee@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#009"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Ken"
+    },
+    "last_name": {
+      "S": "Thompson"
+    },
+    "email": {
+      "S": "ken.thompson@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#010"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Dennis"
+    },
+    "last_name": {
+      "S": "Ritchie"
+    },
+    "email": {
+      "S": "dennis.ritchie@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#011"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Bjarne"
+    },
+    "last_name": {
+      "S": "Stroustrup"
+    },
+    "email": {
+      "S": "bjarne.stroustrup@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#012"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Linus"
+    },
+    "last_name": {
+      "S": "Torvalds"
+    },
+    "email": {
+      "S": "linus.torvalds@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#013"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Richard"
+    },
+    "last_name": {
+      "S": "Stallman"
+    },
+    "email": {
+      "S": "richard.stallman@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#014"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Andrew"
+    },
+    "last_name": {
+      "S": "Tanenbaum"
+    },
+    "email": {
+      "S": "andrew.tanenbaum@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#015"
+    }
+  },
+  {
+    "first_name": {
+      "S": "John"
+    },
+    "last_name": {
+      "S": "McCarthy"
+    },
+    "email": {
+      "S": "john.mccarthy@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#016"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Seymour"
+    },
+    "last_name": {
+      "S": "Cray"
+    },
+    "email": {
+      "S": "seymour.cray@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#017"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Douglas"
+    },
+    "last_name": {
+      "S": "Engelbart"
+    },
+    "email": {
+      "S": "douglas.engelbart@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#018"
+    }
+  },
+  {
+    "first_name": {
+      "S": "Ivan"
+    },
+    "last_name": {
+      "S": "Sutherland"
+    },
+    "email": {
+      "S": "ivan.sutherland@example.com"
+    },
+    "pk": {
+      "S": "dynamodb_json"
+    },
+    "sk": {
+      "S": "scientist#019"
+    }
+  }
+]
