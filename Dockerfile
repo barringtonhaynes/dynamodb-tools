@@ -39,7 +39,7 @@ groupadd docker
 usermod -aG docker vscode
 EOF
 
-FROM build AS production
+FROM base AS production
 
 WORKDIR /app
 COPY ./app ./app
