@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 data_service = DataService()
 table_service = TableService()
 
-
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="app/ui/static"), name="static")
@@ -49,7 +48,7 @@ async def form_submit(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("404.html", {"request": request})
 
 
-@app.get("/health")
+@app.get("/health", response_model=None)
 async def health(request: Request) -> JSONResponse | HTMLResponse:
     """
     Returns a JSONResponse object containing the health status of the application.
@@ -89,13 +88,14 @@ async def list_tables(
 
     if is_html(request):
         return templates.TemplateResponse(
-            "table.html", {"request": request, "table": table_name, "item_count": item_count}
+            "table.html",
+            {"request": request, "table": table_name, "item_count": item_count},
         )
     else:
         return JSONResponse(content={"table": table_name})
 
 
-@app.get("/tables/{table_name}/data")
+@app.get("/tables/{table_name}/data", response_model=None)
 async def get_data_files(
     request: Request, table_name: str = Path(..., description="The name of the table")
 ) -> JSONResponse | HTMLResponse:
@@ -106,49 +106,71 @@ async def get_data_files(
         [file_name for file_name in data_service.get_data_files_for_table(table_name)]
     )
 
-    message = {
-        "style": "positive",
-        "title": "Test message",
-        "text": "This is the text"
-    }
-
     if is_html(request):
         return templates.TemplateResponse(
             "table_data.html",
-            {"request": request, "table": table_name, "data_files": data_files, "messages": [message]},
+            {"request": request, "table": table_name, "data_files": data_files},
         )
     else:
         return JSONResponse(content=data_files)
 
 
-@app.post("/tables/{table_name}/data")
+@app.post("/tables/{table_name}/data", response_model=None)
 async def table_data_file_action(
     request: Request,
     table_name: Annotated[str, Path(description="The name of the table")],
-    # action: Annotated[str, Form()],
-    # data_file: Annotated[str, Form()],
-    # import_data:
-):
-    logger.info(vars(await request.form()))
-    # logger.warning(import_data)
-    # data_file_path = f"{settings.data_path}/import/{table_name}/{data_file}"
-    # table_service.seed_table(table_name, data_file_path)
+    action: Annotated[str, Form()],
+    data_file: Annotated[str, Form()],
+) -> JSONResponse | HTMLResponse:
+    messages = []
+    response = {}
 
-    # response = {
-    #     "status": "success",
-    #     "message": f"Data file {data_file} import into table {table_name}.",
-    # }
+    match action:
+        case "import":
+            logger.info("Importing %s into %s", data_file, table_name)
+            table_service.seed_table(table_name, data_file)
 
-    # return JSONResponse(content=response)
-    return {}
+            message = {
+                "style": "positive",
+                "title": "Data imported",
+                "text": f"Data file {data_file} import into table {table_name}.",
+            }
+
+            messages.append(message)
+
+            response = {
+                "status": "success",
+                "message": f"Data file {data_file} import into table {table_name}.",
+            }
+        case _:
+            raise TypeError("Unknown action")
+
+    if is_html(request):
+        data_files = sorted(
+            [
+                file_name
+                for file_name in data_service.get_data_files_for_table(table_name)
+            ]
+        )
+
+        return templates.TemplateResponse(
+            "table_data.html",
+            {
+                "request": request,
+                "table": table_name,
+                "data_files": data_files,
+                "messages": messages,
+            },
+        )
+    else:
+        return JSONResponse(content=response)
 
 
 @app.get("/tables/{table_name}/data/{data_file}")
 async def show_data_file(
     request: Request,
     table_name: str = Path(..., description="The name of the table"),
-    data_file: str = Path(...,
-                          description="The name of the data file to import"),
+    data_file: str = Path(..., description="The name of the data file to import"),
 ) -> HTMLResponse:
     """
     Render a preview of the data file.
@@ -166,11 +188,10 @@ async def show_data_file(
             raise NotImplementedError()
 
 
-@app.post("/tables/{table_name}/data/{data_file}")
+@app.post("/tables/{table_name}/data/{data_file}", response_model=None)
 async def import_data_file(
     table_name: str = Path(..., description="The name of the table"),
-    data_file: str = Path(...,
-                          description="The name of the data file to import"),
+    data_file: str = Path(..., description="The name of the data file to import"),
 ) -> JSONResponse | HTMLResponse:
     """
     Imports a data file into the specified table.
