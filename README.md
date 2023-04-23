@@ -1,5 +1,7 @@
 # DynamoDB Tools
 
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+
 DynamoDB Tools is a utility container designed to run alongside docker-local in your
 `docker-compose.yaml` file, depending on the environment variables set. This container can:
 
