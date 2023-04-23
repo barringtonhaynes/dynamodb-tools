@@ -8,7 +8,7 @@ DynamoDB Tools is a utility container designed to run alongside docker-local in 
 - Create any tables in the mounted `/data/create` folder
 - Update any tables in the the mounted `/data/update` folder
 - Seed any tables using the mounted `/data/seed` folder
-- Load data into the mounted `/data/load` folder on request
+- Import data from the mounted `/data/import` and `/data/seed` folders on request
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ DynamoDB Tools is a utility container designed to run alongside docker-local in 
     - [Create tables](#create-tables)
     - [Update tables](#update-tables)
     - [Seed tables](#seed-tables)
-    - [Load data](#load-data)
+    - [Import data](#import-data)
   - [DynamoDB Admin](#dynamodb-admin)
   - [Use with Docker Development Environments](#use-with-docker-development-environments)
 
@@ -64,7 +64,7 @@ services:
       - ./dynamodb-data/create:/data/create
       - ./dynamodb-data/update:/data/update
       - ./dynamodb-data/seed:/data/seed
-      - ./dynamodb-data/load:/data/load
+      - ./dynamodb-data/import:/data/import
 ```
 
 2. Run docker-compose up to start the containers.
@@ -119,10 +119,10 @@ The seed data can be in the following formats:
 
 The task will look for the following file extensions, respectively: *.csv*, *.dynamodb.json*, *.json*
 
-### Load data
+### Import data
 
 > **Note**
-> Although the functionality to load data through a UI is currently not implemented, the API can be accessed at http://localhost:8002/docs or http://localhost:8002/redoc. These endpoints allow you to monitor the health of the container, view the status of the loaded data, list and load data into the mounted /data/load folder.
+> Although the functionality to import data through a UI is currently not implemented, the API can be accessed at http://localhost:8002/docs or http://localhost:8002/redoc. These endpoints allow you to monitor the health of the container, view the status of the imported data, list and import data from the mounted /data/import and /data/seed folders.
 
 File support is the same as the seed data.
 

@@ -131,12 +131,12 @@ async def table_data_file_action(
 ):
     logger.info(vars(await request.form()))
     # logger.warning(import_data)
-    # data_file_path = f"{settings.data_path}/load/{table_name}/{data_file}"
+    # data_file_path = f"{settings.data_path}/import/{table_name}/{data_file}"
     # table_service.seed_table(table_name, data_file_path)
 
     # response = {
     #     "status": "success",
-    #     "message": f"Data file {data_file} loaded into table {table_name}.",
+    #     "message": f"Data file {data_file} import into table {table_name}.",
     # }
 
     # return JSONResponse(content=response)
@@ -147,13 +147,14 @@ async def table_data_file_action(
 async def show_data_file(
     request: Request,
     table_name: str = Path(..., description="The name of the table"),
-    data_file: str = Path(..., description="The name of the data file to load"),
+    data_file: str = Path(...,
+                          description="The name of the data file to import"),
 ) -> HTMLResponse:
     """
     Render a preview of the data file.
     """
 
-    data_file_path = f"{settings.data_path}/load/{table_name}/{data_file}"
+    data_file_path = f"{settings.data_path}/import/{table_name}/{data_file}"
     match DataService.get_file_type(data_file):
         case DataFileType.CSV:
             with open(data_file_path) as csvfile:
@@ -166,19 +167,20 @@ async def show_data_file(
 
 
 @app.post("/tables/{table_name}/data/{data_file}")
-async def load_data_file(
+async def import_data_file(
     table_name: str = Path(..., description="The name of the table"),
-    data_file: str = Path(..., description="The name of the data file to load"),
+    data_file: str = Path(...,
+                          description="The name of the data file to import"),
 ) -> JSONResponse | HTMLResponse:
     """
-    Loads a data file into the specified table.
+    Imports a data file into the specified table.
     """
-    data_file_path = f"{settings.data_path}/load/{table_name}/{data_file}"
+    data_file_path = f"{settings.data_path}/import/{table_name}/{data_file}"
     table_service.seed_table(table_name, data_file_path)
 
     response = {
         "status": "success",
-        "message": f"Data file {data_file} loaded into table {table_name}.",
+        "message": f"Data file {data_file} imported into table {table_name}.",
     }
 
     return JSONResponse(content=response)

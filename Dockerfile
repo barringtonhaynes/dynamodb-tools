@@ -1,15 +1,9 @@
 # syntax=docker/dockerfile:1.4
 
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11-slim AS builder
-
-WORKDIR /app
+FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11-slim AS base
 
 COPY requirements.txt ./
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
-
-COPY ./app ./app
-COPY ./examples /examples
+RUN pip install -r requirements.txt
 
 ENV LOG_LEVEL=INFO
 ENV DATA_PATH=/data
@@ -25,13 +19,18 @@ ENV AWS_SECRET_ACCESS_KEY=MY_SECRET_ACCESS_KEY
 ENV AWS_SESSION_TOKEN=""
 ENV MAX_WORKERS=1
 
-VOLUME /data/create /data/update /data/seed /data/load
+VOLUME /data/create /data/update /data/seed /data/import
 
-FROM builder as dev-envs
+FROM base as development
+
+COPY requirements-dev.txt ./
+RUN pip install -r requirements-dev.txt
+
+FROM base as dev-envs
 
 RUN <<EOF
 apt-get update
-apt-get install -y --no-install-recommends git
+apt-get install -y --no-install-recommends git tar
 EOF
 
 RUN <<EOF
@@ -40,5 +39,8 @@ groupadd docker
 usermod -aG docker vscode
 EOF
 
-# install Docker tools (cli, buildx, compose)
-COPY --from=gloursdocker/docker / /
+FROM build AS production
+
+WORKDIR /app
+COPY ./app ./app
+COPY ./examples /examples
