@@ -38,8 +38,8 @@ class DataService:
             yield f"{settings.data_path}/seed/{table_name}/{file}"
 
     def get_data_files_for_table(self, table_name: str) -> list[str]:
-        for file in os.listdir(f"{settings.data_path}/load/{table_name}"):
-            yield f"{settings.data_path}/seed/{table_name}/{file}"
+        for file in os.listdir(f"{settings.data_path}/import/{table_name}"):
+            yield f"{settings.data_path}/import/{table_name}/{file}"
 
     @classmethod
     def get_file_type(cls, file_name: str) -> str:
