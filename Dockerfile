@@ -1,10 +1,19 @@
 # syntax=docker/dockerfile:1.4
 
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11-slim AS base
+FROM python:3.11 AS base
 
-COPY requirements.txt ./
-RUN pip install -r requirements.txt
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+COPY ./start.sh /start.sh
+RUN chmod +x /start.sh
+
+COPY ./app /app
+WORKDIR /app/
+
+COPY ./examples /examples
+
+ENV PYTHONPATH=/app
 ENV LOG_LEVEL=INFO
 ENV DATA_PATH=/data
 ENV DELETE_TABLES_ON_STARTUP=False
@@ -17,16 +26,21 @@ ENV AWS_DEFAULT_REGION=us-east-1
 ENV AWS_ACCESS_KEY_ID=MY_ACCESS_KEY_ID
 ENV AWS_SECRET_ACCESS_KEY=MY_SECRET_ACCESS_KEY
 ENV AWS_SESSION_TOKEN=""
-ENV MAX_WORKERS=1
 
 VOLUME /data/create /data/update /data/seed /data/import
 
+EXPOSE 80
+
+CMD ["/start.sh"]
+
 FROM base as development
 
-COPY requirements-dev.txt ./
-RUN pip install -r requirements-dev.txt
+COPY requirements-dev.txt /tmp/requirements-dev.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-dev.txt
 
-FROM base as dev-envs
+ENV UVICORN_RELOAD=True
+
+FROM development as dev-envs
 
 RUN <<EOF
 apt-get update
@@ -40,7 +54,3 @@ usermod -aG docker vscode
 EOF
 
 FROM base AS production
-
-WORKDIR /app
-COPY ./app ./app
-COPY ./examples /examples
