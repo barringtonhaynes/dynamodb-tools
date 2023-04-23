@@ -4,7 +4,7 @@
 <ol class="ui list">
 {% for table in tables %}
     <li class="item">
-        <h2><a href="/tables/{{ table }}/data">{{ table }}</a></h2>
+        <h2><a href="/tables/{{ table }}">{{ table }}</a></h2>
         <div class="ui tiny buttons">
             <form method="POST" action="/">
                 {% include 'buttons/purge.html' %}
