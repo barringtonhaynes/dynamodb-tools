@@ -1,9 +1,8 @@
 name: ci
 
 on:
-  push:
-    branches:
-      - "main"
+  release:
+    types: [published]
 
 jobs:
   docker:
@@ -31,7 +30,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: barringtonhaynes/dynamodb-tools:latest
+          tags: barringtonhaynes/dynamodb-tools:latest,barringtonhaynes/dynamodb-tools:${{ github.event.release.tag_name }}
       -
         name: Update repo description
         uses: peter-evans/dockerhub-description@v3
