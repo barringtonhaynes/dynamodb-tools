@@ -1,7 +1,18 @@
 import json
 import os
+from enum import Enum
 
 from .config import settings
+
+
+class UnknownDataFileTypeError(Exception):
+    pass
+
+
+class DataFileType(str, Enum):
+    CSV = "csv"
+    JSON = "json"
+    DYNAMODB_JSON = "dynamodb_json"
 
 
 class DataService:
@@ -28,4 +39,14 @@ class DataService:
 
     def get_data_files_for_table(self, table_name: str) -> list[str]:
         for file in os.listdir(f"{settings.data_path}/load/{table_name}"):
-            yield file
+            yield f"{settings.data_path}/seed/{table_name}/{file}"
+
+    @classmethod
+    def get_file_type(cls, file_name: str) -> str:
+        if file_name.endswith(".csv"):
+            return DataFileType.CSV
+        if file_name.endswith(".dynamodb.json"):
+            return DataFileType.DYNAMODB_JSON
+        if file_name.endswith(".json"):
+            return DataFileType.JSON
+        raise UnknownDataFileTypeError(f"Unknown file type for file {file_name}")

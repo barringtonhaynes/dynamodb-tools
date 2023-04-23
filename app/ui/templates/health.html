@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Health{% endblock %}
+{% block header %}
+{{ super() }}
+<h2>Health</h2>
+{% endblock %}
+{% block content %}
+<p>startupTasksStatus: {{ health_status.startupTasksStatus.value }}</p>
+
+<table class="table-auto">
+    <caption class="caption-top">
+        Health
+    </caption>
+    <thead>
+        <tr>
+            <th>Stat</th>
+            <th>Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for key, value in health_status.stats.items() %}
+            <tr>
+                <td>{{ key }}</td>
+                <td>{{ value }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+
+    </tfoot>
+</table>
+
+<table class="table-auto">
+    <caption class="caption-top">
+        Settings    
+    </caption>
+    <thead>
+        <tr>
+            <th>Setting</th>
+            <th>Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for key, value in health_status.settings.items() %}
+            <tr>
+                <td>{{ key }}</td>
+                <td>{{ value }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+
+    </tfoot>
+</table>
+{% endblock %}

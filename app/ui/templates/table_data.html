@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ table }} data{% endblock %}
+{% block header %}
+{{ super() }}
+<h2>Table: <a href="/tables/{{ table }}">{{ table }}</a></h2>
+{% endblock %}
+{% block content %}
+<ol class="ui relaxed divided list">
+{% for data_file in data_files %}
+    <li class="item">
+        <img src="/static/Res_Amazon-DynamoDB_Items_48_Light.svg" />
+        <!-- <i class="large github middle aligned icon"></i> -->
+        <div class="content">
+            <a class="header">{{ data_file }}</a>
+            <div class="ui tiny buttons">
+                {% include 'buttons/preview.html' %}
+                <form method="POST" action="/tables/{{ table }}/data">
+                    <input type="hidden" name="data_file" value="{{ data_file }}" />
+                    {% include 'buttons/load_data.html' %}
+                </form>
+            </div>
+        </div>
+    </li>
+{% endfor %}
+</ol>
+{% endblock %}

@@ -1,26 +1,16 @@
 import csv
 import json
 import logging
-from enum import Enum
 
 import boto3
 from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb import DynamoDBClient, DynamoDBServiceResource
 
 from .config import settings
+from .data_service import DataFileType, DataService, UnknownDataFileTypeError
 from .table_stats import table_stats
 
 logger = logging.getLogger(__name__)
-
-
-class UnknownDataFileTypeError(Exception):
-    pass
-
-
-class DataFileType(str, Enum):
-    CSV = "csv"
-    JSON = "json"
-    DYNAMODB_JSON = "dynamodb_json"
 
 
 class TableService:
@@ -110,7 +100,7 @@ class TableService:
 
     def seed_table(self, table_name: str, data_file: str) -> None:
         try:
-            file_type = self.get_file_type(data_file)
+            file_type = DataService.get_file_type(data_file)
             if file_type == DataFileType.CSV:
                 self.seed_table_from_csv(table_name, data_file)
             elif file_type == DataFileType.JSON:
@@ -160,11 +150,5 @@ class TableService:
                     logger.exception(item)
                     logger.exception(e)
 
-    def get_file_type(self, file_name: str) -> str:
-        if file_name.endswith(".csv"):
-            return DataFileType.CSV
-        if file_name.endswith(".dynamodb.json"):
-            return DataFileType.DYNAMODB_JSON
-        if file_name.endswith(".json"):
-            return DataFileType.JSON
-        raise UnknownDataFileTypeError(f"Unknown file type for file {file_name}")
+    def get_item_count(self, table_name: str) -> int:
+        return self.client.describe_table(TableName=table_name)['Table']['ItemCount']

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<ol class="ui list">
+{% for table in tables %}
+    <li class="item">
+        <h2><a href="/tables/{{ table }}/data">{{ table }}</a></h2>
+        <div class="ui tiny buttons">
+            <form method="POST" action="/">
+                {% include 'buttons/purge.html' %}
+                {% include 'buttons/delete.html' %}
+                {% include 'buttons/create.html' %}
+                {% include 'buttons/update.html' %}
+                {% include 'buttons/load.html' %}
+            </form>
+        </div>
+    </li>
+{% endfor %}
+</ol>
+{% endblock %}

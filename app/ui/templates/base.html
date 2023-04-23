@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block head %}
+    <title>{% block title %}{% endblock %} - DynamoDB Tools</title>
+    {% endblock %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.5.0/semantic.css" integrity="sha512-6PtWSF1JdejluD9SoAmj/idJKF+dJoa2u9UMldygOhgT4M0dmXTiNUx1TwqNiEg4eIjOb4bZRQ19cOP7p8msYA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.5.0/semantic.min.js" integrity="sha512-Xo0Jh8MsOn72LGV8kU5LsclG7SUzJsWGhXbWcYs2MAmChkQzwiW/yTQwdJ8w6UA9C6EVG18GHb/TrYpYCjyAQw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+    <nav class="ui inverted vertical segment"></nav>
+    {% include 'messages.html' %}
+    <header class="ui container">{% block header %}<h1><a href="/">DynamoDB Tools</a></h1>{% endblock %} </header>
+    <main class="ui container">{% block content %}{% endblock %}</main>
+    <footer class="ui fixed bottom sticky inverted vertical segment">
+        <div class="ui center aligned container">
+        {% block footer %}
+            <div class="item">
+                <i class="large github middle aligned icon"></i>
+                <div class="content">
+                    <a class="header">barringtonhaynes/dynamodb-tools</a>
+                </div>
+            </div>
+        {% endblock %}
+        </div>
+    </footer>
+</body>
+</html>

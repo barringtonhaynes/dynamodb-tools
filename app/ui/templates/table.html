@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ table }}{% endblock %}
+{% block header %}
+{{ super() }}
+<h2>{{ table }}</h2>
+{% endblock %}
+{% block content %}
+<p>
+    Item count: {{ item_count }}
+</p>
+{% endblock %}
