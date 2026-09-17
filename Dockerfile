@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11-slim AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -20,10 +20,11 @@ ENV UPDATE_TABLES_ON_STARTUP=True
 ENV SEED_TABLES_ON_STARTUP=True
 ENV DYNAMODB_ENDPOINT_URL=http://dynamodb:8000
 ENV AWS_DEFAULT_REGION=us-east-1
-ENV AWS_ACCESS_KEY_ID=MY_ACCESS_KEY_ID
-ENV AWS_SECRET_ACCESS_KEY=MY_SECRET_ACCESS_KEY
+ENV AWS_ACCESS_KEY_ID=localaccesskey
+ENV AWS_SECRET_ACCESS_KEY=localsecretkey
 ENV AWS_SESSION_TOKEN=""
-ENV MAX_WORKERS=1
+EXPOSE 80
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
 
 VOLUME /data/create /data/update /data/seed /data/load
 
@@ -42,3 +43,6 @@ EOF
 
 # install Docker tools (cli, buildx, compose)
 COPY --from=gloursdocker/docker / /
+
+# Keep development tools out of the published default image.
+FROM builder AS runtime

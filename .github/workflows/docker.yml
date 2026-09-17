@@ -1,12 +1,20 @@
 name: ci
 
 on:
+  pull_request:
   push:
     branches:
       - "main"
 
+permissions:
+  contents: read
+
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   docker:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       -
@@ -20,6 +28,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
       -
         name: Login to Docker Hub
+        if: github.event_name == 'push'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -30,10 +39,12 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          target: runtime
+          push: ${{ github.event_name == 'push' }}
           tags: barringtonhaynes/dynamodb-tools:latest
       -
         name: Update repo description
+        if: github.event_name == 'push'
         uses: peter-evans/dockerhub-description@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}

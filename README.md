@@ -1,12 +1,12 @@
 # DynamoDB Tools
 
-DynamoDB Tools is a utility container designed to run alongside docker-local in your
+DynamoDB Tools is a utility container designed to run alongside DynamoDB Local in your
 `docker-compose.yaml` file, depending on the environment variables set. This container can:
 
 - Create any tables in the mounted `/data/create` folder
-- Update any tables in the the mounted `/data/update` folder
+- Update any tables in the mounted `/data/update` folder
 - Seed any tables using the mounted `/data/seed` folder
-- Load data into the mounted `/data/load` folder on request
+- Load files from the mounted `/data/load` folder into tables on request
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ DynamoDB Tools is a utility container designed to run alongside docker-local in 
     - [Seed tables](#seed-tables)
     - [Load data](#load-data)
   - [DynamoDB Admin](#dynamodb-admin)
-  - [Use with Docker Development Environments](#use-with-docker-development-environments)
+  - [Development and testing](#development-and-testing)
 
 ## Usage
 
@@ -65,11 +65,11 @@ services:
       - ./dynamodb-data/load:/data/load
 ```
 
-2. Run docker-compose up to start the containers.
+2. Run `docker compose up` to start the containers.
 
 #### Mounting the example files
 
-To test the container and make sure everything works, set the `DATA_PATH` environment variable to `/examples/simple`.
+To test the container and make sure everything works, set the `DATA_PATH` environment variable to `/examples/basic`.
 
 ### Environment variables
 
@@ -86,8 +86,8 @@ The following environment variables are available:
 | SEED_TABLES_ON_STARTUP   | True                 | Seed tables on startup      |
 | DYNAMODB_ENDPOINT_URL    | http://dynamodb:8000 | The DynamoDB endpoint URL   |
 | AWS_DEFAULT_REGION       | us-east-1            | The AWS region              |
-| AWS_ACCESS_KEY_ID        | MY_ACCESS_KEY_ID     | The AWS access key ID       |
-| AWS_SECRET_ACCESS_KEY    | MY_SECRET_ACCESS_KEY | The AWS secret access key   |
+| AWS_ACCESS_KEY_ID        | localaccesskey     | The AWS access key ID       |
+| AWS_SECRET_ACCESS_KEY    | localsecretkey | The AWS secret access key   |
 | AWS_SESSION_TOKEN        | NULL                 | The AWS session token       |
 
 > **Warning**
@@ -120,7 +120,7 @@ The task will look for the following file extensions, respectively: *.csv*, *.dy
 ### Load data
 
 > **Note**
-> Although the functionality to load data through a UI is currently not implemented, the API can be accessed at http://localhost:8002/docs or http://localhost:8002/redoc. These endpoints allow you to monitor the health of the container, view the status of the loaded data, list and load data into the mounted /data/load folder.
+> Although the functionality to load data through a UI is currently not implemented, the API can be accessed at http://localhost:8002/docs or http://localhost:8002/redoc. These endpoints allow you to monitor the health of the container, view the status of the loaded data, list files in the mounted `/data/load` folder and load them into tables.
 
 File support is the same as the seed data.
 
@@ -141,36 +141,65 @@ services:
     environment:
       - DYNAMO_ENDPOINT=http://dynamodb:8000
       - AWS_DEFAULT_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=MY_ACCESS_KEY_ID
-      - AWS_SECRET_ACCESS_KEY=MY_SECRET_ACCESS_KEY
+      - AWS_ACCESS_KEY_ID=localaccesskey
+      - AWS_SECRET_ACCESS_KEY=localsecretkey
     depends_on:
       - dynamodb
 ```
 
-## Use with Docker Development Environments
+## Development and testing
 
-You can open this project in the Dev Environments feature of Docker Desktop version 4.12 or later.
-
-[Open in Docker Dev Environments <img src="open_in_new.svg" alt="Open in Docker Dev Environments" align="top"/>](https://open.docker.com/dashboard/dev-envs?url=https://github.com/barringtonhaynes/dynamodb-tools)
-
-To start the server in the Dev Environment, run the following command in the terminal:
+Python 3.11 or later is required for local development:
 
 ```bash
-./start_dev
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+python -m pytest -q
+pre-commit run --all-files
 ```
 
-You can can set environment variables for you Dev Environment by using `export`, for example:
+Tests use an in-memory DynamoDB mock and dummy credentials; no AWS account is required.
+They cover data formats, decimal precision, paginated purges, failure reporting,
+file containment, application startup, and the supplied examples.
+
+To run the examples with Docker:
 
 ```bash
-export LOG_LEVEL=DEBUG
-./start_dev
+docker compose -f compose-dev.yaml up --build
 ```
 
-Alternatively, you can prefix the `start_dev` command with the environment variable, for example:
+Open the API documentation at <http://localhost:8002/docs>.
+The development image is selected explicitly by `compose-dev.yaml`; the default
+Docker build produces the runtime image without Docker or Git development tools.
+
+For local Python development, set the AWS environment variables listed above,
+point `DYNAMODB_ENDPOINT_URL` at your local DynamoDB instance, set
+`DATA_PATH=./examples/basic`, and run:
 
 ```bash
-LOG_LEVEL=DEBUG ./start_dev
+uvicorn app.main:app --host 127.0.0.1 --port 8002 --reload
 ```
 
-> **Note**
-> This feature is currently in beta. See  the [official documentation](https://docs.docker.com/desktop/dev-environments) for further information.
+Use one application worker, because startup actions and statistics are per process.
+Startup actions finish before the API accepts requests. A failure is logged and
+prevents startup; importing the application does not modify any tables.
+Missing create, update, seed, or load directories are treated as empty.
+Files are processed in filename order; only regular CSV and JSON data files are discovered.
+
+Imports use batch writes, retry unprocessed items through boto3, preserve JSON decimal
+values, and treat CSV values as strings. Every item must contain the table keys.
+Repeated keys are overwritten by the last record. The `seeded` statistic counts
+successfully loaded files, not individual records. Imports are not transactional:
+a failed file may have written earlier batches, so correct the file before retrying.
+
+The load API returns HTTP 404 for missing files or tables, 400 for invalid input,
+and 502/503 for upstream DynamoDB failures. Files must stay inside the table's
+load directory, including symlink targets.
+
+Creating an existing table is skipped. An identical single-index creation update
+is also skipped when that index is already active. Other invalid updates fail visibly
+instead of being treated as successful.
+
+Pull requests run tests, formatting checks, and a container build. Publishing the
+Docker image happens only after those checks pass on a push to `main`.

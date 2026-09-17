@@ -1,19 +1,20 @@
-import asyncio
 import logging
-import os
-import threading
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from .config import settings
 from .controller import router
 from .startup_tasks import startup_tasks
 
-logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=settings.log_level)
 
-app = FastAPI()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await startup_tasks()
+    yield
+
+
+app = FastAPI(title="DynamoDB Tools", lifespan=lifespan)
 app.include_router(router)
-
-thread = threading.Thread(target=lambda: asyncio.run(startup_tasks()))
-thread.start()
