@@ -38,7 +38,7 @@ def test_json_decimals_nested_values_and_multiple_batches(service, tmp_path):
 )
 def test_supported_formats(service, tmp_path, suffix, content):
     path = tmp_path / f"data{suffix}"
-    path.write_text(content)
+    path.write_bytes(content.encode("utf-8"))
     service.seed_table("test_table", str(path))
     assert service.resource.Table("test_table").get_item(Key={"name": "Ada"})[
         "Item"

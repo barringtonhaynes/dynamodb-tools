@@ -23,6 +23,8 @@ const result = spawnSync(
     require.resolve("@vscode/vsce/vsce"),
     "package",
     "--no-dependencies",
+    // PyInstaller's macOS framework contains directory links; VSIX needs their files.
+    "--follow-symlinks",
     "--target",
     target,
     "--out",

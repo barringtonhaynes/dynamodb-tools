@@ -27,4 +27,5 @@ nsis:
 linux:
   target: [AppImage, deb]
   category: Development
+  maintainer: Barrington Haynes <barrington.haynes@ontik.io>
 publish: null
