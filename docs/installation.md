@@ -28,10 +28,15 @@ before quitting because already-applied writes cannot be rolled back.
 ## Visual Studio Code
 
 Choose **Extensions → … → Install from VSIX…**, select
-`dynamodb-tools-0.2.1-darwin-arm64.vsix`, then run **DynamoDB Tools: Open Console**
+`dynamodb-tools-0.2.2-darwin-arm64.vsix`, then run **DynamoDB Tools: Open Console**
 from the Command Palette. The extension includes its own service and manages it
 without a terminal. **Restart Console** and **Stop Console** are also available.
 Closing the console stops the service. Use a trusted local workspace.
+
+In extension 0.2.2, you can also click the **DynamoDB Tools** database icon in the
+Activity Bar. Its sidebar provides Open Console, Tables, Connection settings and
+Activity shortcuts. The console opens in the editor area. Simply showing the
+sidebar does not start the service or connect to AWS.
 
 Extension 0.2.1 follows your active VS Code colour theme and editor font settings,
 including both high-contrast variants. Switching themes preserves unsaved drafts

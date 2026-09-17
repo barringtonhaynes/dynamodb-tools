@@ -19,6 +19,15 @@
   }
   window.addEventListener("message", (event) => {
     const data = event.data;
+    if (data?.kind === "navigate") {
+      if (!["tables", "settings", "activity"].includes(data.route)) return;
+      if (document.querySelector("dialog[open]")) {
+        vscode.postMessage({ kind: "navigationBlocked" });
+        return;
+      }
+      location.hash = "#" + data.route;
+      return;
+    }
     const request = pending.get(data?.id);
     if (!request) return;
     pending.delete(data.id);
@@ -27,6 +36,7 @@
     else request.resolve(data.result);
   });
   window.dynamoHost = Object.freeze({
+    ready: () => vscode.postMessage({ kind: "ready" }),
     async fetch(path, options = {}) {
       const result = await call({
         kind: "request",

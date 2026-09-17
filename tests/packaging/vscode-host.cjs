@@ -8,26 +8,76 @@ exports.run = async function () {
   );
   assert(extension, "Installed development extension must be discoverable");
   await extension.activate();
-  await vscode.commands.executeCommand("dynamodbTools.open");
-  for (
-    let i = 0;
-    i < 50 &&
-    !vscode.window.tabGroups.all.some((group) =>
-      group.tabs.some((tab) => tab.label === "DynamoDB Tools"),
+  if (process.env.TEST_VSCODE_SIDEBAR) {
+    await vscode.commands.executeCommand(
+      "workbench.view.extension.dynamodbTools",
     );
-    i++
-  )
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  assert(
-    vscode.window.tabGroups.all.some((group) =>
-      group.tabs.some((tab) => tab.label === "DynamoDB Tools"),
-    ),
-  );
+    assert(
+      !vscode.window.tabGroups.all.some((group) =>
+        group.tabs.some((tab) => tab.label === "DynamoDB Tools"),
+      ),
+      "Sidebar must not open a console automatically",
+    );
+    assert.equal(
+      await fs
+        .stat(
+          path.join(
+            process.env.T1_UI_DIR,
+            "user/User/globalStorage/barringtonhaynes.dynamodb-tools/workspace/workspace.sqlite3",
+          ),
+        )
+        .then(
+          () => true,
+          () => false,
+        ),
+      false,
+      "Sidebar activation must not start the service",
+    );
+  } else {
+    await vscode.commands.executeCommand("dynamodbTools.open");
+    for (
+      let i = 0;
+      i < 50 &&
+      !vscode.window.tabGroups.all.some((group) =>
+        group.tabs.some((tab) => tab.label === "DynamoDB Tools"),
+      );
+      i++
+    )
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    assert(
+      vscode.window.tabGroups.all.some((group) =>
+        group.tabs.some((tab) => tab.label === "DynamoDB Tools"),
+      ),
+    );
+  }
   if (process.env.T1_UI_DIR) {
     await fs.writeFile(path.join(process.env.T1_UI_DIR, "ready"), "ready");
     let result;
     let themeRequestId;
+    let sidebarRequestId;
     for (let i = 0; i < 240; i++) {
+      try {
+        const request = JSON.parse(
+          await fs.readFile(
+            path.join(process.env.T1_UI_DIR, "sidebar-request.json"),
+            "utf8",
+          ),
+        );
+        if (request.id !== sidebarRequestId) {
+          assert(["stop", "tables"].includes(request.command));
+          await vscode.commands.executeCommand(
+            "dynamodbTools." + request.command,
+          );
+          sidebarRequestId = request.id;
+          await fs.writeFile(
+            path.join(process.env.T1_UI_DIR, "sidebar-ready.json"),
+            JSON.stringify({ id: request.id }),
+          );
+        }
+      } catch (error) {
+        if (error.code !== "ENOENT" && !(error instanceof SyntaxError))
+          throw error;
+      }
       try {
         const request = JSON.parse(
           await fs.readFile(
@@ -77,6 +127,12 @@ exports.run = async function () {
     }
     assert(result, "Webview UI check timed out");
     assert(!result.error, result.error);
+    assert.equal(
+      vscode.window.tabGroups.all
+        .flatMap((group) => group.tabs)
+        .filter((tab) => tab.label === "DynamoDB Tools").length,
+      1,
+    );
   }
   await vscode.commands.executeCommand("dynamodbTools.stop");
   await vscode.commands.executeCommand("dynamodbTools.open");

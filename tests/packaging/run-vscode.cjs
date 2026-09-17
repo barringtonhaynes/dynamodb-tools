@@ -38,6 +38,7 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       process.env.T1_EXTENSION_PATH || path.resolve("packaging/vscode"),
     extensionTestsPath: path.resolve("tests/packaging/vscode-host.cjs"),
     extensionTestsEnv: {
+      TEST_VSCODE_SIDEBAR: process.env.TEST_VSCODE_SIDEBAR || "",
       T1_UI_DIR: root,
       T1_TEST_RESULTS: path.resolve("test-results"),
       AWS_EC2_METADATA_DISABLED: "true",
@@ -72,6 +73,14 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       }
       assert(ready, "Extension did not become ready");
       browser = await chromium.connectOverCDP("http://127.0.0.1:" + port);
+      browser.contexts()[0].setDefaultTimeout(10000);
+      if (process.env.TEST_VSCODE_SIDEBAR) {
+        const page = browser.contexts()[0].pages()[0];
+        await page
+          .getByRole("treeitem")
+          .filter({ hasText: "Open Console" })
+          .click();
+      }
       const { connectWebview } = require("./cdp-webview.cjs");
       const webview = await connectWebview(port);
       try {
@@ -116,8 +125,20 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
           JSON.stringify(violations, null, 2),
         );
         assert.deepEqual(violations, []);
+        if (process.env.TEST_VSCODE_SIDEBAR) {
+          await require("./vscode-sidebar.cjs").check({
+            webview,
+            browser,
+            root,
+            port,
+          });
+        }
         if (process.env.TEST_VSCODE_THEMES) {
-          await require("./vscode-themes.cjs").check({ webview, browser, root });
+          await require("./vscode-themes.cjs").check({
+            webview,
+            browser,
+            root,
+          });
         }
       } finally {
         webview.close();
@@ -126,6 +147,19 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         "VS Code webview: rendered console, API bridge, persisted schema and table discovery passed.",
       );
     } catch (error) {
+      if (browser?.isConnected()) {
+        const page = browser.contexts()[0].pages()[0];
+        console.error(
+          "Sidebar rows:",
+          await page
+            .getByRole("treeitem")
+            .allTextContents()
+            .catch(() => []),
+        );
+        await page
+          .screenshot({ path: "test-results/vscode-sidebar-debug.png" })
+          .catch(() => {});
+      }
       failure = error;
     }
     await fs.writeFile(

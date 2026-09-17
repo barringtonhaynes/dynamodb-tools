@@ -1700,4 +1700,5 @@ setInterval(() => {
 }, 2500);
 initializeLocalWorkspace()
   .then(() => navigate())
-  .catch(errorPage);
+  .catch(errorPage)
+  .finally(() => window.dynamoHost?.ready?.());

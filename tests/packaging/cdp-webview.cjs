@@ -1,5 +1,8 @@
 // CDP's flattened iframe session is needed for VS Code's custom-scheme webviews.
-async function connectWebview(port) {
+async function connectWebview(
+  port,
+  readyExpression = '!!document.getElementById("connection-form")',
+) {
   const info = await (
     await fetch(`http://127.0.0.1:${port}/json/version`)
   ).json();
@@ -36,12 +39,16 @@ async function connectWebview(port) {
       pending.set(id, { resolve, reject, timer });
       socket.send(JSON.stringify({ id, method, params, sessionId }));
     });
-  const { targetInfos } = await send("Target.getTargets");
-  const target = targetInfos.find(
-    (t) =>
-      t.type === "iframe" &&
-      t.url.includes("extensionId=barringtonhaynes.dynamodb-tools"),
-  );
+  let target;
+  for (let i = 0; i < 100 && !target; i++) {
+    const { targetInfos } = await send("Target.getTargets");
+    target = targetInfos.find(
+      (t) =>
+        t.type === "iframe" &&
+        t.url.includes("extensionId=barringtonhaynes.dynamodb-tools"),
+    );
+    if (!target) await new Promise((resolve) => setTimeout(resolve, 200));
+  }
   if (!target) {
     socket.close();
     throw new Error("DynamoDB Tools webview target is missing");
@@ -57,7 +64,7 @@ async function connectWebview(port) {
       const result = await send(
         "Runtime.evaluate",
         {
-          expression: '!!document.getElementById("connection-form")',
+          expression: readyExpression,
           contextId: id,
           returnByValue: true,
         },

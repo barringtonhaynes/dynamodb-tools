@@ -1,5 +1,11 @@
 # DynamoDB Tools for Visual Studio Code
 
+Click the database icon labelled **DynamoDB Tools** in the Activity Bar. Its native
+sidebar has **Open Console**, **Tables**, **Connection settings** and **Activity**
+shortcuts. They open or reuse the console in the editor area. Opening the sidebar
+alone does not start a connection. Close an open item dialog before using a route
+shortcut; your draft stays open until you choose what to do with it.
+
 Open the Command Palette and run **DynamoDB Tools: Open Console**. The extension
 starts its included service automatically. Choose an AWS profile/region or a local
 DynamoDB endpoint in Settings. AWS starts read-only and uses your existing SDK

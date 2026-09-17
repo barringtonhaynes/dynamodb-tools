@@ -6,6 +6,12 @@ const crypto = require("node:crypto");
 const { startService, bundledExecutable } = require("./host.cjs");
 let panel, backend, opening, shuttingDown;
 let startupAbort;
+let navigatePanel;
+const routes = new Set(["tables", "settings", "activity"]);
+async function openAt(context, route) {
+  await open(context);
+  navigatePanel?.(route);
+}
 async function stop() {
   startupAbort?.abort();
   if (opening) await opening.catch(() => {});
@@ -13,6 +19,7 @@ async function stop() {
     running = backend;
   panel = undefined;
   backend = undefined;
+  navigatePanel = undefined;
   old?.dispose();
   if (running) await running.stop();
   await shuttingDown;
@@ -50,6 +57,16 @@ async function open(context) {
         },
       );
       const current = panel;
+      let ready = false,
+        queuedRoute;
+      navigatePanel = (route) => {
+        if (!routes.has(route) || panel !== current) return;
+        queuedRoute = route;
+        if (ready) {
+          current.webview.postMessage({ kind: "navigate", route });
+          queuedRoute = undefined;
+        }
+      };
       const nonce = crypto.randomBytes(24).toString("base64");
       let html = fs.readFileSync(
         path.join(context.extensionPath, "static/index.html"),
@@ -83,6 +100,18 @@ async function open(context) {
       );
       current.webview.html = html;
       current.webview.onDidReceiveMessage(async (message) => {
+        if (panel !== current || !message) return;
+        if (message.kind === "ready") {
+          ready = true;
+          if (queuedRoute) navigatePanel?.(queuedRoute);
+          return;
+        }
+        if (message.kind === "navigationBlocked") {
+          vscode.window.showInformationMessage(
+            "Close the current DynamoDB Tools dialog before navigating. Your draft is still open.",
+          );
+          return;
+        }
         if (
           panel !== current ||
           !message ||
@@ -134,7 +163,10 @@ async function open(context) {
         }
       });
       current.onDidDispose(() => {
-        if (panel === current) panel = undefined;
+        if (panel === current) {
+          panel = undefined;
+          navigatePanel = undefined;
+        }
         if (backend === owned) backend = undefined;
         shuttingDown = owned.stop();
       });
@@ -150,8 +182,38 @@ async function open(context) {
   }
 }
 function activate(context) {
+  const shortcuts = [
+    ["Open Console", "open", "open-preview", "Continue in the editor"],
+    ["Tables", "tables", "table", "Browse the connected database"],
+    [
+      "Connection settings",
+      "settings",
+      "settings-gear",
+      "Choose AWS or a local endpoint",
+    ],
+    ["Activity", "activity", "history", "View console operations"],
+  ].map(([label, command, icon, tooltip]) => {
+    const item = new vscode.TreeItem(
+      label,
+      vscode.TreeItemCollapsibleState.None,
+    );
+    item.id = command;
+    item.iconPath = new vscode.ThemeIcon(icon);
+    item.tooltip = tooltip;
+    item.command = { command: "dynamodbTools." + command, title: label };
+    return item;
+  });
   context.subscriptions.push(
+    vscode.window.registerTreeDataProvider("dynamodbTools.workspace", {
+      getTreeItem: (item) => item,
+      getChildren: (item) => (item ? [] : shortcuts),
+    }),
     vscode.commands.registerCommand("dynamodbTools.open", () => open(context)),
+    ...[...routes].map((route) =>
+      vscode.commands.registerCommand("dynamodbTools." + route, () =>
+        openAt(context, route),
+      ),
+    ),
     vscode.commands.registerCommand("dynamodbTools.restart", async () => {
       await stop();
       await shuttingDown;
