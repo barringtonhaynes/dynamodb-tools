@@ -5,15 +5,50 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { startService, bundledExecutable } = require("./host.cjs");
 let panel, backend, opening, shuttingDown;
-let startupAbort;
+let startupAbort, starting, explorer;
+const navigation = require("./static/navigation-model.js");
+const { WorkspaceExplorer } = require("./explorer.cjs");
+async function ensureBackend(context) {
+  if (backend) return backend;
+  if (starting) return starting;
+  startupAbort = new AbortController();
+  starting = (async () => {
+    await shuttingDown;
+    backend = await startService({
+      signal: startupAbort.signal,
+      executable: bundledExecutable(context.extensionPath),
+      stateDir: path.join(context.globalStorageUri.fsPath, "workspace"),
+      onExit: (error) => {
+        backend = undefined;
+        explorer?.reset(true);
+        vscode.window.showErrorMessage(error.message);
+        panel?.dispose();
+      },
+    });
+    return backend;
+  })();
+  try {
+    return await starting;
+  } finally {
+    starting = undefined;
+  }
+}
 let navigatePanel;
-const routes = new Set(["tables", "settings", "activity"]);
-async function openAt(context, route) {
+const routes = new Set([
+  "overview",
+  "tables",
+  "imports",
+  "settings",
+  "activity",
+]);
+async function openAt(context, route, connectionId) {
+  if (!navigation.validRoute(route)) return;
   await open(context);
-  navigatePanel?.(route);
+  navigatePanel?.(route, connectionId);
 }
 async function stop() {
   startupAbort?.abort();
+  if (starting) await starting.catch(() => {});
   if (opening) await opening.catch(() => {});
   const old = panel,
     running = backend;
@@ -21,7 +56,8 @@ async function stop() {
   backend = undefined;
   navigatePanel = undefined;
   old?.dispose();
-  if (running) await running.stop();
+  explorer?.reset(true);
+  if (running) shuttingDown = running.stop();
   await shuttingDown;
 }
 async function open(context) {
@@ -30,19 +66,9 @@ async function open(context) {
     panel.reveal();
     return;
   }
-  startupAbort = new AbortController();
   opening = (async () => {
     try {
-      await shuttingDown;
-      backend = await startService({
-        signal: startupAbort.signal,
-        executable: bundledExecutable(context.extensionPath),
-        stateDir: path.join(context.globalStorageUri.fsPath, "workspace"),
-        onExit: (error) => {
-          vscode.window.showErrorMessage(error.message);
-          panel?.dispose();
-        },
-      });
+      await ensureBackend(context);
       const owned = backend;
       panel = vscode.window.createWebviewPanel(
         "dynamodbTools",
@@ -59,11 +85,15 @@ async function open(context) {
       const current = panel;
       let ready = false,
         queuedRoute;
-      navigatePanel = (route) => {
-        if (!routes.has(route) || panel !== current) return;
-        queuedRoute = route;
+      navigatePanel = (route, connectionId) => {
+        if (!navigation.validRoute(route) || panel !== current) return;
+        queuedRoute = { route, connectionId };
         if (ready) {
-          current.webview.postMessage({ kind: "navigate", route });
+          current.webview.postMessage({
+            kind: "navigate",
+            route,
+            connectionId,
+          });
           queuedRoute = undefined;
         }
       };
@@ -103,7 +133,8 @@ async function open(context) {
         if (panel !== current || !message) return;
         if (message.kind === "ready") {
           ready = true;
-          if (queuedRoute) navigatePanel?.(queuedRoute);
+          if (queuedRoute)
+            navigatePanel?.(queuedRoute.route, queuedRoute.connectionId);
           return;
         }
         if (message.kind === "navigationBlocked") {
@@ -121,8 +152,10 @@ async function open(context) {
           return;
         try {
           let result;
-          if (message.kind === "request") result = await owned.request(message);
-          else if (message.kind === "download") {
+          if (message.kind === "request") {
+            result = await owned.request(message);
+            await explorer?.accept(message, result);
+          } else if (message.kind === "download") {
             if (
               typeof message.text !== "string" ||
               Buffer.byteLength(message.text) > 64 * 1024 * 1024
@@ -167,8 +200,7 @@ async function open(context) {
           panel = undefined;
           navigatePanel = undefined;
         }
-        if (backend === owned) backend = undefined;
-        shuttingDown = owned.stop();
+        // The explorer owns the service even when its editor is closed.
       });
     } catch (error) {
       await vscode.window.showErrorMessage("DynamoDB Tools: " + error.message);
@@ -182,32 +214,27 @@ async function open(context) {
   }
 }
 function activate(context) {
-  const shortcuts = [
-    ["Open Console", "open", "open-preview", "Continue in the editor"],
-    ["Tables", "tables", "table", "Browse the connected database"],
-    [
-      "Connection settings",
-      "settings",
-      "settings-gear",
-      "Choose AWS or a local endpoint",
-    ],
-    ["Activity", "activity", "history", "View console operations"],
-  ].map(([label, command, icon, tooltip]) => {
-    const item = new vscode.TreeItem(
-      label,
-      vscode.TreeItemCollapsibleState.None,
-    );
-    item.id = command;
-    item.iconPath = new vscode.ThemeIcon(icon);
-    item.tooltip = tooltip;
-    item.command = { command: "dynamodbTools." + command, title: label };
-    return item;
-  });
+  explorer = new WorkspaceExplorer(
+    async (message) => (await ensureBackend(context)).request(message),
+    (route, connectionId) => openAt(context, route, connectionId),
+    (definitions) =>
+      panel?.webview.postMessage({ kind: "definitions", definitions }),
+  );
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("dynamodbTools.workspace", {
-      getTreeItem: (item) => item,
-      getChildren: (item) => (item ? [] : shortcuts),
-    }),
+    explorer,
+    vscode.window.registerTreeDataProvider("dynamodbTools.workspace", explorer),
+    vscode.commands.registerCommand(
+      "dynamodbTools.navigate",
+      (route, connectionId) => openAt(context, route, connectionId),
+    ),
+    vscode.commands.registerCommand("dynamodbTools.refreshExplorer", () =>
+      explorer.reset(),
+    ),
+    vscode.commands.registerCommand("dynamodbTools.favourite", (node) =>
+      explorer
+        .toggleFavourite(node)
+        .catch((error) => vscode.window.showErrorMessage(error.message)),
+    ),
     vscode.commands.registerCommand("dynamodbTools.open", () => open(context)),
     ...[...routes].map((route) =>
       vscode.commands.registerCommand("dynamodbTools." + route, () =>

@@ -19,13 +19,30 @@
   }
   window.addEventListener("message", (event) => {
     const data = event.data;
+    if (data?.kind === "definitions") {
+      window.dispatchEvent(
+        new CustomEvent("host-definitions", { detail: data.definitions }),
+      );
+      return;
+    }
     if (data?.kind === "navigate") {
-      if (!["tables", "settings", "activity"].includes(data.route)) return;
+      if (!workspaceNavigation.validRoute(data.route)) return;
+      if (
+        data.connectionId &&
+        data.connectionId !== state.overview?.connection?.id
+      ) {
+        toast(
+          "Connection changed. Refresh the explorer before opening this table.",
+          true,
+        );
+        return;
+      }
       if (document.querySelector("dialog[open]")) {
         vscode.postMessage({ kind: "navigationBlocked" });
         return;
       }
-      location.hash = "#" + data.route;
+      if (location.hash === "#" + data.route) navigate();
+      else location.hash = "#" + data.route;
       return;
     }
     const request = pending.get(data?.id);

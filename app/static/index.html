@@ -11,6 +11,8 @@
     <title>DynamoDB Tools · Your local data workspace</title>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/static/app.css" />
+    <script src="/static/navigation-model.js" defer></script>
+    <script src="/static/navigation.js" defer></script>
     <script src="/static/local-workspace.js" defer></script>
     <script src="/static/connection.js" defer></script>
     <script src="/static/insights.js" defer></script>
@@ -33,30 +35,20 @@
         <span class="live-dot"></span>
       </div>
       <div class="nav-label">WORKSPACE</div>
-      <nav aria-label="Main navigation">
-        <a href="#overview" data-nav="overview"
-          ><span data-icon="overview"></span>Overview</a
-        >
-        <a href="#tables" data-nav="tables"
-          ><span data-icon="table"></span>Tables
-          <span id="nav-table-count" class="nav-count">—</span></a
-        >
-        <a href="#imports" data-nav="imports"
-          ><span data-icon="upload"></span>Import data</a
-        >
-        <a href="#activity" data-nav="activity"
-          ><span data-icon="activity"></span>Activity
-          <span id="activity-dot"></span
-        ></a>
-      </nav>
+      <div hidden>
+        <span id="nav-table-count"></span><span id="activity-dot"></span>
+      </div>
+      <nav
+        aria-label="Workspace explorer"
+        id="workspace-navigation"
+        class="workspace-explorer"
+      ></nav>
       <div class="sidebar-bottom">
         <a href="/docs" target="_blank" rel="noopener"
           ><span data-icon="code"></span>API reference<span
             data-icon="external"
-          ></span></a
-        ><a href="#settings" data-nav="settings"
-          ><span data-icon="settings"></span>Settings</a
-        >
+          ></span
+        ></a>
         <div class="connection-card">
           <span class="live-dot" id="connection-dot"></span>
           <div>

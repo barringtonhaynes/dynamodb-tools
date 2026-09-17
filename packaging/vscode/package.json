@@ -2,7 +2,7 @@
   "name": "dynamodb-tools",
   "displayName": "DynamoDB Tools",
   "description": "A local DynamoDB workspace with safe AWS access, a bundled service, queries, Streams and lossless item editing.",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "publisher": "barringtonhaynes",
   "license": "Apache-2.0",
   "engines": {
@@ -56,6 +56,16 @@
         "command": "dynamodbTools.activity",
         "title": "DynamoDB Tools: View Activity",
         "icon": "$(history)"
+      },
+      {
+        "command": "dynamodbTools.refreshExplorer",
+        "title": "DynamoDB Tools: Refresh Explorer",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "dynamodbTools.favourite",
+        "title": "Toggle Favourite Table",
+        "icon": "$(star-empty)"
       }
     ],
     "viewsContainers": {
@@ -80,9 +90,21 @@
     "menus": {
       "view/title": [
         {
+          "command": "dynamodbTools.refreshExplorer",
+          "when": "view == dynamodbTools.workspace",
+          "group": "navigation"
+        },
+        {
           "command": "dynamodbTools.open",
           "when": "view == dynamodbTools.workspace",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dynamodbTools.favourite",
+          "when": "view == dynamodbTools.workspace && viewItem =~ /^(table|favouriteTable)$/",
+          "group": "inline"
         }
       ]
     }

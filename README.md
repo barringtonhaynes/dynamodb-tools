@@ -50,10 +50,19 @@ CSS, JavaScript, and icons without external fonts, CDNs, or analytics.
 
 The layout adapts to small screens. Forms have accessible labels, dialogs support
 Escape, tabs support arrow keys, and `/` focuses the current table or page filter.
-Saved queries persist in browser storage, scoped to the console origin, DynamoDB
-endpoint, region, and table. They retain the index, exact key values, sort order,
-page size, server filters, returned attributes, consistency, and page filter. They are not shared between browsers; clearing site
-data removes them. Loading checks that the saved index and key schema still exist.
+Saved queries retain the index, exact key values, sort order, page size, server
+filters, returned attributes, consistency and page filter. Installed desktop and
+VS Code editions keep queries, schemas and favourite tables in a local workspace
+file across restarts and upgrades. Browser mode uses site storage. Definitions
+are scoped to AWS account or local endpoint, region and table; favourites are
+scoped to connection and region. Export/import a workspace JSON file to transfer
+saved work between hosts. Loading checks that the saved index and key schema
+still exist.
+
+The expandable navigation lists tables, favourite tables, saved queries and
+settings sections. VS Code uses its native sidebar, with the selected table in
+the main editor. Clicking a saved query in the explorer prepares its controls;
+choose **Run query** to read data.
 
 Item editor views share one draft. Switching or formatting validates the current
 view first; invalid input remains available to fix. Standard JSON numbers are

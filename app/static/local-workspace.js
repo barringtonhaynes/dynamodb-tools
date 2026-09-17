@@ -14,6 +14,7 @@ const workspaceStorage = {
   async setItem(key, value) {
     if (!this.installed) {
       localStorage.setItem(key, value);
+      document.dispatchEvent(new Event("workspace-changed"));
       return;
     }
     const result = await send("/api/local/definition", "PUT", {
@@ -22,6 +23,7 @@ const workspaceStorage = {
       revision: this.definitions[key]?.revision || 0,
     });
     this.definitions[key] = result;
+    document.dispatchEvent(new Event("workspace-changed"));
   },
   entries() {
     if (this.installed)
@@ -33,7 +35,11 @@ const workspaceStorage = {
       );
     return Object.fromEntries(
       Object.keys(localStorage)
-        .filter((key) => key.startsWith("dynamodb-tools.saved-queries.v1:"))
+        .filter(
+          (key) =>
+            key.startsWith("dynamodb-tools.saved-queries.v1:") ||
+            key.startsWith(workspaceNavigation.favouritePrefix),
+        )
         .map((key) => [key, localStorage.getItem(key)]),
     );
   },
@@ -47,6 +53,8 @@ async function initializeLocalWorkspace() {
   const data = await response.json();
   workspaceStorage.installed = data.installed === true;
   workspaceStorage.definitions = data.definitions || {};
+  workspaceStorage.path = data.path;
+  renderWorkspaceNavigation();
 }
 async function saveDownload(text, filename) {
   if (window.dynamoHost) return window.dynamoHost.download(text, filename);
@@ -73,25 +81,42 @@ function validateWorkspaceImport(text) {
     throw new Error("Choose a DynamoDB Tools workspace export (version 1).");
   for (const [key, value] of Object.entries(data.definitions)) {
     if (
-      !key.startsWith("dynamodb-tools.saved-queries.v1:") ||
+      !(
+        key.startsWith("dynamodb-tools.saved-queries.v1:") ||
+        key.startsWith(workspaceNavigation.favouritePrefix)
+      ) ||
       key.length > 2048 ||
       typeof value !== "string" ||
       new TextEncoder().encode(value).length > 2 * 1024 * 1024
     )
       throw new Error("Invalid saved definition.");
+    const favourite = key.startsWith(workspaceNavigation.favouritePrefix);
+    const suffix = key.slice(
+      favourite
+        ? workspaceNavigation.favouritePrefix.length
+        : "dynamodb-tools.saved-queries.v1:".length,
+    );
     const scope = JSON.parse(
-      key
-        .slice("dynamodb-tools.saved-queries.v1:".length)
-        .replace(/:item-schema$/, ""),
+      favourite ? suffix : suffix.replace(/:item-schema$/, ""),
     );
     if (
       !Array.isArray(scope) ||
-      scope.length !== 3 ||
+      scope.length !== (favourite ? 2 : 3) ||
       scope.some((v) => typeof v !== "string" || !v)
     )
       throw new Error("Invalid connection/table scope.");
     const parsed = value ? JSON.parse(value) : null;
-    if (key.endsWith(":item-schema")) {
+    if (favourite) {
+      if (
+        !Array.isArray(parsed) ||
+        parsed.length > 1000 ||
+        parsed.some(
+          (name) =>
+            typeof name !== "string" || !/^[A-Za-z0-9_.-]{3,255}$/.test(name),
+        )
+      )
+        throw new Error("Invalid favourite tables.");
+    } else if (key.endsWith(":item-schema")) {
       if (
         value &&
         !(
@@ -120,7 +145,8 @@ function validateWorkspaceImport(text) {
 function renderWorkspaceTransfer() {
   const section = document.createElement("section");
   section.className = "panel workspace-transfer";
-  section.innerHTML = `<div class="panel-heading"><div><h2>Saved workspace</h2><p>${workspaceStorage.installed ? "Saved on this computer, across app restarts and upgrades." : "Saved in this browser. Export to move into the desktop app or VS Code."}</p></div>${icon("bookmark")}</div><div class="panel-body"><p class="info-note">Transfer saved queries and item schemas. Connection settings, credentials and table contents are not included. Existing definitions are kept when you import.</p><div class="button-group"><button class="button" id="export-workspace">${icon("download")}Export workspace</button><button class="button" id="import-workspace">${icon("upload")}Import workspace</button><input type="file" id="workspace-file" accept=".json,application/json" hidden></div><p id="workspace-import-status" role="status"></p><button class="button primary" id="confirm-workspace-import" hidden>Import new definitions</button></div>`;
+  section.id = "settings-workspace";
+  section.innerHTML = `<div class="panel-heading"><div><h2>Saved workspace</h2><p>${workspaceStorage.installed ? "Saved on this computer, across app restarts and upgrades." : "Saved in this browser. Export to move into the desktop app or VS Code."}</p></div>${icon("bookmark")}</div><div class="panel-body"><p class="info-note">Transfer favourite tables, saved queries and item schemas. Connection settings, credentials and table contents are not included. Saved query values may contain sensitive data. Existing definitions are kept when you import.</p>${workspaceStorage.path ? `<p class="info-note">Local workspace file: <code>${esc(workspaceStorage.path)}</code>. Use Export workspace for a portable JSON file.</p>` : ""}<div class="button-group"><button class="button" id="export-workspace">${icon("download")}Export workspace</button><button class="button" id="import-workspace">${icon("upload")}Import workspace</button><input type="file" id="workspace-file" accept=".json,application/json" hidden></div><p id="workspace-import-status" role="status"></p><button class="button primary" id="confirm-workspace-import" hidden>Import new definitions</button></div>`;
   document.querySelector(".settings-grid").after(section);
   section.querySelector("#export-workspace").onclick = async () => {
     try {
@@ -211,4 +237,9 @@ document.addEventListener("click", async (event) => {
   } catch (error) {
     toast(error.message, true);
   }
+});
+
+window.addEventListener("host-definitions", (event) => {
+  workspaceStorage.definitions = event.detail || {};
+  document.dispatchEvent(new Event("workspace-changed"));
 });

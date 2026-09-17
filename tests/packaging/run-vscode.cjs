@@ -76,9 +76,13 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       browser.contexts()[0].setDefaultTimeout(10000);
       if (process.env.TEST_VSCODE_SIDEBAR) {
         const page = browser.contexts()[0].pages()[0];
+        const settings = page
+          .getByRole("treeitem")
+          .filter({ hasText: /^Settings$/ });
+        await settings.locator(".monaco-tl-twistie").click();
         await page
           .getByRole("treeitem")
-          .filter({ hasText: "Open Console" })
+          .filter({ hasText: "Connection & access" })
           .click();
       }
       const { connectWebview } = require("./cdp-webview.cjs");
@@ -93,7 +97,7 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
           const key = 'dynamodb-tools.saved-queries.v1:["account","us-east-1","vscode"]:item-schema';
           await workspaceStorage.setItem(key, '{"type":"object"}');
           if (workspaceStorage.getItem(key) !== '{"type":"object"}') throw new Error('Bridge persistence failed');
-          document.querySelector('[data-nav="tables"]').click();
+          location.hash = "#tables";
         })()`);
         let tables = false;
         for (let i = 0; i < 60; i++) {

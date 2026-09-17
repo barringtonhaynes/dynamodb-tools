@@ -1,13 +1,13 @@
 # Install DynamoDB Tools
 
-Version 0.2.0 is a local preview with a bundled Python service. You do not need a
+Version 0.3.0 is a local preview with a bundled Python service. You do not need a
 source checkout, Python, Node or Docker to connect to AWS. Credentials remain in
 your normal AWS SDK providers (environment, shared configuration, profiles, SSO,
 credential processes or workload roles). SSO sessions must already be signed in.
 
 ## Desktop
 
-On Apple Silicon macOS, open `dynamodb-tools-0.2.0-mac-arm64.dmg`, drag **DynamoDB
+On Apple Silicon macOS, open `dynamodb-tools-0.3.0-mac-arm64.dmg`, drag **DynamoDB
 Tools** into Applications, then launch it. A ZIP containing the same application
 is also provided. Start in Settings: choose your AWS profile and region, or an
 optional local DynamoDB endpoint, then **Test connection** and **Save & connect**.
@@ -28,19 +28,17 @@ before quitting because already-applied writes cannot be rolled back.
 ## Visual Studio Code
 
 Choose **Extensions → … → Install from VSIX…**, select
-`dynamodb-tools-0.2.2-darwin-arm64.vsix`, then run **DynamoDB Tools: Open Console**
+`dynamodb-tools-0.3.0-darwin-arm64.vsix`, then run **DynamoDB Tools: Open Console**
 from the Command Palette. The extension includes its own service and manages it
 without a terminal. **Restart Console** and **Stop Console** are also available.
-Closing the console stops the service. Use a trusted local workspace.
+The explorer keeps the service available when you close its editor. Use **Stop Console** to stop it, or close VS Code. Use a trusted local workspace.
 
-In extension 0.2.2, you can also click the **DynamoDB Tools** database icon in the
-Activity Bar. Its sidebar provides Open Console, Tables, Connection settings and
-Activity shortcuts. The console opens in the editor area. Simply showing the
-sidebar does not start the service or connect to AWS.
+In extension 0.3.0, you can also click the **DynamoDB Tools** database icon in the
+Activity Bar. Its expandable sidebar is the main navigation: favourite tables, all tables, saved queries, table sections and settings. Selecting a table opens its details in the editor without a duplicate sidebar. Simply showing the sidebar does not start the service; expanding Tables or Favourites loads connection metadata. Use the refresh icon to refresh discovery. If listing is restricted, choose **All tables / open by name**.
 
 Extension 0.2.1 follows your active VS Code colour theme and editor font settings,
 including both high-contrast variants. Switching themes preserves unsaved drafts
-and cursor selection. The standalone desktop remains version 0.2.0.
+and cursor selection. The standalone desktop remains version 0.3.0.
 
 The extension is a desktop, local extension, including when using Remote SSH or
 containers: it uses the credentials and endpoints on your local computer. Browser
@@ -50,7 +48,7 @@ from workspace configuration. The webview cannot access Node or the service toke
 ## Saved work and upgrades
 
 Settings shows the exact path of `connection.json`. The sibling
-`workspace.sqlite3` holds versioned saved queries and item schemas. Neither file
+`workspace.sqlite3` holds versioned favourite tables, saved queries and item schemas. Settings → Saved workspace shows its exact path. Favourite tables are scoped to connection and region; saved queries also belong to a specific table. Neither file
 is inside the installation. Desktop uses Electron's per-user data directory;
 VS Code uses this extension's global storage. The two installations have separate
 workspaces. Connection files contain preferences only, not access keys or tokens.
@@ -58,7 +56,7 @@ workspaces. Connection files contain preferences only, not access keys or tokens
 To migrate from the browser or between hosts, use **Settings → Saved workspace →
 Export workspace**, then **Import workspace** in the destination. Review the
 number of new and existing definitions and confirm import. Existing keys are
-kept. Exports contain query values and schemas, which may be sensitive; choose
+kept. Exports contain favourite table names, query values and schemas, which may be sensitive; choose
 where you store them. Browser data remains unchanged. Table items, AWS credentials
 and connection preferences are not included in this transfer.
 
@@ -99,3 +97,5 @@ selects the packaged desktop executable for `node tests/packaging/desktop.mjs`.
 `node tests/packaging/run-vscode.cjs` exercises the extension and its webview.
 Set `TEST_DDB_ENDPOINT` to a disposable DynamoDB Local instance for UI checks.
 Retained reports and screenshots live under `test-results/`.
+
+Saved queries appear beneath each table. Selecting one fills its saved controls for review; **Run query** performs the read. Star tables in their main view or use the native explorer context action. Desktop and browser have the same expandable navigation.

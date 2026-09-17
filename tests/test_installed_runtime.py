@@ -101,3 +101,24 @@ def test_installed_api_auth_host_and_aws_read_only(monkeypatch, tmp_path):
         == 1
     )
     assert "a" * 43 not in json.dumps(client.get("/health", headers=headers).json())
+
+
+def test_favourites_are_local_scoped_validated_and_versioned(monkeypatch, tmp_path):
+    from app.user_state import save_definition
+
+    monkeypatch.setattr(host_runtime, "state_directory", tmp_path)
+    key = 'dynamodb-tools.favourites.v1:["111111111111","eu-west-2"]'
+    saved = save_definition(Definition(key=key, value='["people"]', revision=0))
+    assert saved["revision"] == 1
+    assert StateStore(tmp_path).read()[key]["value"] == '["people"]'
+    other = 'dynamodb-tools.favourites.v1:["222222222222","eu-west-2"]'
+    save_definition(Definition(key=other, value='["orders"]', revision=0))
+    assert len(StateStore(tmp_path).read()) == 2
+    with pytest.raises(HTTPException) as stale:
+        save_definition(Definition(key=key, value="[]", revision=0))
+    assert stale.value.status_code == 409
+    for invalid in ["null", "{}", '["../secret"]', '["people","people"]', "[{}]"]:
+        with pytest.raises(HTTPException) as bad:
+            save_definition(Definition(key=key, value=invalid, revision=1))
+        assert bad.value.status_code == 422
+    assert StateStore(tmp_path).read()[key]["value"] == '["people"]'

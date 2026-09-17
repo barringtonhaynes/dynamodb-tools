@@ -289,7 +289,9 @@ async function refreshOverview(render = true) {
   return refreshPromise;
 }
 async function navigate() {
-  const [route, name] = location.hash.replace(/^#\/?/, "").split("/");
+  const [path, query] = location.hash.replace(/^#\/?/, "").split("?");
+  const [route, name] = path.split("/");
+  const params = new URLSearchParams(query);
   state.route = [
     "overview",
     "tables",
@@ -299,11 +301,22 @@ async function navigate() {
   ].includes(route)
     ? route
     : "overview";
-  state.table = name ? decodeURIComponent(name) : null;
+  state.table = route === "tables" && name ? decodeURIComponent(name) : null;
+  state.settingsSection = route === "settings" ? name : null;
+  state.requestedQuery = params.get("query");
   state.generation++;
   state.importFile = null;
   state.savedQueryId = "";
-  state.detailTab = "items";
+  state.detailTab = [
+    "items",
+    "schema",
+    "streams",
+    "model",
+    "partiql",
+    "manage",
+  ].includes(params.get("view"))
+    ? params.get("view")
+    : "items";
   state.page = 1;
   state.cursors = [null];
   state.search = { mode: "scan", index: null, limit: 25 };
@@ -335,6 +348,7 @@ async function navigate() {
   }
   if (state.overview || state.route === "settings") await renderRoute();
   else await refreshOverview();
+  renderWorkspaceNavigation();
 }
 async function renderRoute() {
   const generation = state.generation;
@@ -344,7 +358,13 @@ async function renderRoute() {
     else if (state.route === "tables") await renderDetail(generation);
     else if (state.route === "imports") await renderImports(generation);
     else if (state.route === "activity") renderActivity();
-    else if (state.route === "settings") await renderSettings(generation);
+    else if (state.route === "settings") {
+      await renderSettings(generation);
+      if (generation === state.generation)
+        document
+          .getElementById("settings-" + state.settingsSection)
+          ?.scrollIntoView({ block: "start" });
+    }
   } catch (error) {
     if (generation === state.generation) errorPage(error);
   }
@@ -390,7 +410,7 @@ async function renderDetail(generation = state.generation) {
   state.detail = detail;
   const pk = detail.KeySchema.find((k) => k.KeyType === "HASH").AttributeName,
     sk = detail.KeySchema.find((k) => k.KeyType === "RANGE")?.AttributeName;
-  main.innerHTML = `<a class="back-link" href="#tables">${icon("left")}All tables</a><div class="page-heading table-heading"><div><h1>${esc(name)}${statusTag(detail.TableStatus)}</h1><div class="detail-metrics"><span>Partition key<strong class="mono">${esc(pk)}</strong></span>${sk ? `<span>Sort key<strong class="mono">${esc(sk)}</strong></span>` : ""}<span>Items (est.)<strong>${fmt(detail.ItemCount)}</strong></span><span>Size<strong>${bytes(detail.TableSizeBytes)}</strong></span></div></div><div class="heading-actions">${button("Export", "export", "download")}${button("Add item", "add-item", "plus", "primary")}</div></div>${activeBanner()}<div class="tabs" role="tablist" aria-label="Table views">${[
+  main.innerHTML = `<a class="back-link" href="#tables">${icon("left")}All tables</a><div class="page-heading table-heading"><div><h1>${esc(name)}${statusTag(detail.TableStatus)}</h1><div class="detail-metrics"><span>Partition key<strong class="mono">${esc(pk)}</strong></span>${sk ? `<span>Sort key<strong class="mono">${esc(sk)}</strong></span>` : ""}<span>Items (est.)<strong>${fmt(detail.ItemCount)}</strong></span><span>Size<strong>${bytes(detail.TableSizeBytes)}</strong></span></div></div><div class="heading-actions"><button class="button" id="favourite-table" aria-pressed="false">☆ Favourite</button>${button("Export", "export", "download")}${button("Add item", "add-item", "plus", "primary")}</div></div>${activeBanner()}<div class="tabs" role="tablist" aria-label="Table views">${[
     ["items", "Items", "table"],
     ["import", "Import data", "upload"],
     ["streams", "Streams", "activity"],
@@ -406,6 +426,7 @@ async function renderDetail(generation = state.generation) {
     .join(
       "",
     )}</div><div id="detail-content" role="tabpanel" aria-labelledby="tab-${state.detailTab}"></div>`;
+  updateFavouriteButton();
   await renderDetailTab();
 }
 async function renderDetailTab() {
@@ -420,7 +441,11 @@ async function renderDetailTab() {
   content.setAttribute("aria-labelledby", "tab-" + state.detailTab);
   if (state.detailTab === "items") {
     renderExplorer();
-    await loadItems();
+    if (state.requestedQuery) {
+      state.savedQueryId = state.requestedQuery;
+      state.requestedQuery = null;
+      await loadSavedQuery(false);
+    } else await loadItems();
   } else if (state.detailTab === "streams") {
     await renderStreams();
   } else if (state.detailTab === "partiql") {
@@ -672,7 +697,7 @@ function saveQueryDialog(manage = false) {
   const request = manage ? null : readQueryForm();
   openDialog(
     manage ? "Manage saved query" : "Save query",
-    "Keep a useful query close at hand. Saved only in this browser.",
+    `Keep a useful query close at hand. Saved ${workspaceStorage.installed ? "on this computer" : "in this browser"}.`,
     `<div class="field"><label for="saved-query-name">Query name</label><input id="saved-query-name" required maxlength="80" autocomplete="off" placeholder="e.g. Recent pending orders" value="${esc(saved?.name || "")}"></div>${manage ? '<label class="saved-query-update"><input type="checkbox" id="saved-query-update">Replace saved settings with the current explorer settings</label>' : '<p class="editor-help">Includes the index, key conditions, sort order, page size, and page filter. Loading starts from the first page.</p>'}`,
     `${manage ? button("Delete saved query", "delete-saved-query", "trash", "danger-outline") : ""}<button class="button primary" type="submit">${icon("bookmark")}${manage ? "Save changes" : "Save query"}</button>`,
     {
@@ -684,7 +709,7 @@ function saveQueryDialog(manage = false) {
     },
   );
 }
-async function loadSavedQuery() {
+async function loadSavedQuery(run = true) {
   const saved = selectedSavedQuery();
   if (saved.schema !== querySchema(saved.request.index))
     throw new Error(
@@ -695,7 +720,18 @@ async function loadSavedQuery() {
   state.cursors = [null];
   renderExplorer();
   document.getElementById("item-filter").value = saved.filter;
-  await loadItems();
+  if (run) await loadItems();
+  else {
+    state.items = [];
+    state.nextCursor = null;
+    document.getElementById("page-label").textContent = "Not run yet";
+    document.getElementById("items-container").innerHTML = empty(
+      "Saved query ready",
+      "Review the conditions, then run the query.",
+      "",
+      true,
+    );
+  }
   document.getElementById("query-mode")?.focus();
 }
 async function submitSavedQuery(context) {
@@ -973,7 +1009,7 @@ async function renderSettings(generation) {
       "Workspace settings",
       "Your connection, access mode, and startup configuration.",
     ) +
-    `<div class="settings-grid"><section class="panel"><div class="panel-heading"><h2>Connection</h2>${icon("database")}</div><div class="panel-body"><div class="schema-row"><span>Endpoint</span><code>${esc(s.dynamodb_endpoint_url)}</code></div><div class="schema-row"><span>Mode</span><strong>${s.dynamodb_mode === "aws" ? "AWS" : "Local"} · ${s.read_only ? "Read-only" : "Writes enabled"}</strong></div>${s.dynamodb_mode === "aws" ? `<div class="schema-row"><span>Account / region</span><code>${esc(state.overview?.connection?.account || "Not connected")} · ${esc(state.overview?.connection?.region || "")}</code></div><div class="schema-row"><span>Profile</span><code>${esc(s.aws_profile || "Default credential chain")}</code></div><div class="schema-row"><span>Signed in as</span><code>${esc(state.overview?.connection?.principal || "Not connected")}</code></div>` : ""}<div class="schema-row"><span>Data folder</span><code>${esc(s.data_path)}</code></div><div class="schema-row"><span>Log level</span><code>${esc(s.log_level)}</code></div><div class="schema-row"><span>Upload limit</span><span>${bytes(data.maxImportBytes)}</span></div><p class="info-note">Use the connection form above to test and save changes. AWS credentials stay with your configured provider.</p></div></section><section class="panel"><div class="panel-heading"><h2>Startup tasks</h2>${icon("play")}</div><div class="panel-body">${[
+    `<div class="settings-grid"><section class="panel"><div class="panel-heading"><h2>Connection</h2>${icon("database")}</div><div class="panel-body"><div class="schema-row"><span>Endpoint</span><code>${esc(s.dynamodb_endpoint_url)}</code></div><div class="schema-row"><span>Mode</span><strong>${s.dynamodb_mode === "aws" ? "AWS" : "Local"} · ${s.read_only ? "Read-only" : "Writes enabled"}</strong></div>${s.dynamodb_mode === "aws" ? `<div class="schema-row"><span>Account / region</span><code>${esc(state.overview?.connection?.account || "Not connected")} · ${esc(state.overview?.connection?.region || "")}</code></div><div class="schema-row"><span>Profile</span><code>${esc(s.aws_profile || "Default credential chain")}</code></div><div class="schema-row"><span>Signed in as</span><code>${esc(state.overview?.connection?.principal || "Not connected")}</code></div>` : ""}<div class="schema-row"><span>Data folder</span><code>${esc(s.data_path)}</code></div><div class="schema-row"><span>Log level</span><code>${esc(s.log_level)}</code></div><div class="schema-row"><span>Upload limit</span><span>${bytes(data.maxImportBytes)}</span></div><p class="info-note">Use the connection form above to test and save changes. AWS credentials stay with your configured provider.</p></div></section><section class="panel" id="settings-startup"><div class="panel-heading"><h2>Startup tasks</h2>${icon("play")}</div><div class="panel-body">${[
       ["delete_tables_on_startup", "Delete tables"],
       ["purge_tables_on_startup", "Purge tables"],
       ["create_tables_on_startup", "Create tables from schemas"],

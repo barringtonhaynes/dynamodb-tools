@@ -301,3 +301,12 @@ body:is(.vscode-high-contrast, .vscode-high-contrast-light)
     -webkit-text-fill-color: CanvasText;
   }
 }
+
+/* Navigation lives in VS Code's native Activity Bar tree. */
+#sidebar,
+#menu-toggle {
+  display: none !important;
+}
+.shell {
+  margin-left: 0 !important;
+}

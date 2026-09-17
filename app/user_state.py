@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from . import host_runtime
 
 PREFIX = "dynamodb-tools.saved-queries.v1:"
+FAVOURITES_PREFIX = "dynamodb-tools.favourites.v1:"
 MAX_BYTES = 2 * 1024 * 1024
 router = APIRouter(prefix="/api/local")
 
@@ -23,14 +24,17 @@ class Definition(BaseModel):
     @field_validator("key")
     @classmethod
     def key_valid(cls, value):
-        if not value.startswith(PREFIX):
-            raise ValueError("Only saved queries and item schemas can be stored")
-        suffix = value.removeprefix(PREFIX)
-        scope = suffix.removesuffix(":item-schema")
+        favourite = value.startswith(FAVOURITES_PREFIX)
+        if not favourite and not value.startswith(PREFIX):
+            raise ValueError(
+                "Only saved queries, favourites and item schemas can be stored"
+            )
+        suffix = value.removeprefix(FAVOURITES_PREFIX if favourite else PREFIX)
+        scope = suffix if favourite else suffix.removesuffix(":item-schema")
         parts = json.loads(scope)
         if (
             not isinstance(parts, list)
-            or len(parts) != 3
+            or len(parts) != (2 if favourite else 3)
             or not all(isinstance(part, str) and part for part in parts)
         ):
             raise ValueError("Invalid connection/table scope")
@@ -119,12 +123,33 @@ def store():
 def local_info():
     if host_runtime.state_directory is None:
         return {"installed": False}
-    return {"installed": True, "version": "0.2.0", "definitions": store().read()}
+    local = store()
+    return {
+        "installed": True,
+        "version": "0.3.0",
+        "definitions": local.read(),
+        "path": str(local.path),
+    }
 
 
 @router.put("/definition")
 def save_definition(definition: Definition):
-    if definition.key.endswith(":item-schema"):
+    if definition.key.startswith(FAVOURITES_PREFIX):
+        import re
+
+        names = json.loads(definition.value or "null")
+        if (
+            not isinstance(names, list)
+            or len(names) > 1000
+            or any(
+                not isinstance(name, str)
+                or not re.fullmatch(r"[A-Za-z0-9_.-]{3,255}", name)
+                for name in names
+            )
+            or len(set(names)) != len(names)
+        ):
+            raise HTTPException(422, "Favourites must be unique DynamoDB table names")
+    elif definition.key.endswith(":item-schema"):
         if definition.value and not isinstance(
             json.loads(definition.value), (dict, bool)
         ):

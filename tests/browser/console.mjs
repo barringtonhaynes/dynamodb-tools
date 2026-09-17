@@ -490,7 +490,7 @@ try {
     fullPage: true,
   });
   await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.locator('nav a[href="#tables"]').click();
+  await page.getByRole("link", { name: "Tables", exact: true }).click();
   await page.getByRole("heading", { name: "Tables", exact: true }).waitFor();
   await noPageOverflow();
   await page.getByRole("button", { name: "Create table", exact: true }).click();

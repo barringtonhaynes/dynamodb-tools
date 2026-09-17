@@ -2608,3 +2608,107 @@ meter {
 .workspace-transfer .panel-body {
   padding-top: 8px;
 }
+
+/* Expandable workspace navigation; native VS Code supplies its own tree. */
+[hidden] {
+  display: none !important;
+}
+.workspace-explorer {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0 -8px;
+  padding: 0 8px 12px;
+}
+.workspace-explorer .explorer-label {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.workspace-explorer .explorer-children {
+  margin-left: 12px;
+  padding-left: 9px;
+  border-left: 1px solid var(--line);
+}
+.workspace-explorer a {
+  padding: 7px 8px;
+  margin: 2px 0;
+  font-size: 13px;
+  min-height: 30px;
+}
+.workspace-explorer a[aria-current="page"] {
+  color: var(--purple);
+  background: var(--purple-soft);
+}
+.explorer-empty {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 8px;
+}
+.sidebar .sidebar-bottom {
+  flex-shrink: 0;
+}
+#settings-connection,
+#settings-workspace,
+#settings-startup {
+  scroll-margin-top: 90px;
+}
+
+.workspace-explorer .explorer-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  vertical-align: middle;
+  max-width: calc(100% - 14px);
+}
+.workspace-explorer .explorer-label svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+
+.explorer-row {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  gap: 0;
+}
+.explorer-row > a {
+  flex: 1;
+  min-width: 0;
+}
+.explorer-toggle {
+  display: inline-flex;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+  color: var(--secondary);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.explorer-toggle > svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+}
+.explorer-toggle[aria-expanded="true"] > svg {
+  transform: rotate(90deg);
+}
+.explorer-toggle:hover {
+  background: var(--purple-soft);
+}
+.explorer-toggle:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: -2px;
+}
+.explorer-group {
+  width: 100%;
+  justify-content: flex-start;
+  flex: 1;
+  gap: 5px;
+  text-align: left;
+  font-weight: 520;
+}

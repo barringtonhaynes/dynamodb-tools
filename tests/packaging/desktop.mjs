@@ -124,8 +124,79 @@ try {
     .getByRole("heading", { name: "API reference", exact: true })
     .waitFor();
   await page.getByRole("button", { name: "Close reference" }).click();
-  await page.getByRole("link", { name: /^Tables/ }).click();
+  await page.locator('#workspace-navigation a[href="#tables"]').first().click();
   await page.getByRole("heading", { name: "All tables" }).waitFor();
+  const name = await page.evaluate(() => state.overview.tables[0].TableName);
+  await page
+    .getByRole("button", { name: "Expand Tables", exact: true })
+    .click();
+  await page
+    .locator("#workspace-navigation a")
+    .filter({ hasText: new RegExp("^" + name + "$") })
+    .click();
+  await page.locator("#favourite-table").click();
+  await page.waitForFunction(
+    () =>
+      document
+        .getElementById("favourite-table")
+        .getAttribute("aria-pressed") === "true",
+  );
+  await page.evaluate(async () => {
+    await writeSavedQueries(savedQueryKey(), [
+      {
+        id: "desktop-query",
+        name: "Recent people",
+        request: { mode: "scan", index: null, limit: 25 },
+        filter: "",
+        schema: querySchema(null),
+      },
+    ]);
+  });
+  await page
+    .getByRole("button", { name: "Expand Favourites", exact: true })
+    .click();
+  const favouriteBranch = page.locator('[data-node="favourite/' + name + '"]');
+  await favouriteBranch
+    .getByRole("button", { name: "Expand " + name, exact: true })
+    .click();
+  await favouriteBranch
+    .getByRole("button", { name: "Expand Saved queries", exact: true })
+    .click();
+  await page.getByRole("link", { name: "Recent people", exact: true }).click();
+  await page.getByText("Saved query ready", { exact: true }).waitFor();
+  assert.equal(await page.locator("#page-label").textContent(), "Not run yet");
+  assert(
+    await page.evaluate(() => {
+      const exported = JSON.stringify({
+        format: "dynamodb-tools-workspace",
+        version: 1,
+        definitions: workspaceStorage.entries(),
+      });
+      const definitions = validateWorkspaceImport(exported);
+      return (
+        JSON.parse(
+          definitions[
+            workspaceNavigation.favouriteKey(state.overview.connection)
+          ],
+        ).length === 1
+      );
+    }),
+  );
+  const explorerAxe = await new AxeBuilder({ page })
+    .setLegacyMode()
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  assert.deepEqual(
+    explorerAxe.violations.map((v) => ({
+      id: v.id,
+      nodes: v.nodes.map((n) => n.target),
+    })),
+    [],
+  );
+  await page.screenshot({
+    path: "test-results/desktop-explorer.png",
+    fullPage: true,
+  });
   assert.deepEqual(errors, []);
   await app.close();
   app = undefined;
@@ -141,6 +212,23 @@ try {
   assert.equal(
     await page.evaluate((key) => workspaceStorage.getItem(key), key),
     '{"type":"object"}',
+  );
+  assert.equal(
+    await page.evaluate(
+      () =>
+        workspaceNavigation.favourites(
+          state.overview.connection,
+          workspaceStorage.entries(),
+        ).length,
+    ),
+    1,
+  );
+  assert(
+    await page.evaluate(() =>
+      Object.values(workspaceStorage.entries()).some((value) =>
+        value.includes("desktop-query"),
+      ),
+    ),
   );
   await app.close();
   app = undefined;

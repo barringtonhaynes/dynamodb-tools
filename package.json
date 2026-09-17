@@ -21,7 +21,7 @@
     "@vscode/vsce": "4.0.0",
     "@vscode/test-electron": "^2.5.2"
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A local DynamoDB workspace for desktop and VS Code",
   "author": "Barrington Haynes",
   "license": "Apache-2.0",
