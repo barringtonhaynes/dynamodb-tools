@@ -2,7 +2,7 @@
   "name": "dynamodb-tools-console-checks",
   "private": true,
   "scripts": {
-    "check": "node --check app/static/app.js && prettier --check app/static tests/browser",
+    "check": "node --check app/static/app.js && node --check app/static/workspace.js && prettier --check app/static tests/browser",
     "format": "prettier --write app/static tests/browser",
     "test:browser": "node tests/browser/console.mjs"
   },

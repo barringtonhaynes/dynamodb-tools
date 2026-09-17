@@ -11,6 +11,7 @@ from .config import settings
 from .console_api import router as console_router
 from .controller import router
 from .startup_tasks import startup_tasks
+from .workspace_api import router as workspace_router
 
 logging.basicConfig(level=settings.log_level)
 
@@ -25,6 +26,7 @@ app = FastAPI(title="DynamoDB Tools", lifespan=lifespan)
 app.include_router(router)
 
 app.include_router(console_router)
+app.include_router(workspace_router)
 static_directory = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_directory), name="static")
 

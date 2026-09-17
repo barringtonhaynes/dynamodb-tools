@@ -2,12 +2,14 @@
 import base64
 import binascii
 import json
+from hashlib import sha256
 
 import boto3
 from botocore.config import Config
 
 from .config import settings
 from .data_codec import attribute_from_wire, item_from_wire, to_wire
+from .query_filters import apply_read_options
 
 
 class ConsoleService:
@@ -58,20 +60,16 @@ class ConsoleService:
         }
         if request.index:
             arguments["IndexName"] = request.index
-        scope = {
-            "table": name,
-            "index": request.index,
-            "mode": request.mode,
-            "partition": request.partition,
-            "sort": request.sort,
-            "operator": request.operator,
-            "sortEnd": request.sortEnd,
-            "ascending": request.ascending,
-        }
+        table = self.describe(name)
+        scope = sha256(
+            json.dumps(
+                {"table": name, **request.model_dump(exclude={"cursor", "limit"})},
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
         if request.cursor:
             arguments["ExclusiveStartKey"] = self.cursor_decode(request.cursor, scope)
         if request.mode == "query":
-            table = self.describe(name)
             schema = table["KeySchema"]
             if request.index:
                 indexes = table.get("GlobalSecondaryIndexes", []) + table.get(
@@ -111,8 +109,10 @@ class ConsoleService:
                     expression = f"#sk {request.operator} :sk"
                 arguments["KeyConditionExpression"] += " AND " + expression
             arguments["ScanIndexForward"] = request.ascending
+            apply_read_options(arguments, request, table)
             result = self.client.query(**arguments)
         else:
+            apply_read_options(arguments, request, table)
             result = self.client.scan(**arguments)
         return {
             "items": to_wire(result.get("Items", [])),

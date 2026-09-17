@@ -2123,3 +2123,129 @@ dialog.item-dialog {
   overflow-y: auto;
   min-height: 0;
 }
+
+.read-options {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.read-options summary {
+  color: var(--purple);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+}
+.read-options-body {
+  display: grid;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.read-options textarea,
+#partiql-parameters {
+  min-height: 78px;
+}
+.read-options .field-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+.filter-row .field {
+  flex: 1;
+  min-width: 100px;
+}
+.filter-row .filter-value-group {
+  flex: 1;
+}
+.filter-row input,
+.filter-row select {
+  width: 100%;
+}
+.bulk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--secondary);
+}
+.workspace-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+}
+.workspace-form .info-note {
+  flex-basis: 100%;
+}
+.workspace-form .field {
+  flex: 1;
+  min-width: 160px;
+}
+.workspace-form .wide-field {
+  flex-basis: 100%;
+}
+.workspace-form input,
+.workspace-form select {
+  width: 100%;
+}
+.stream-record {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+  margin-top: 12px;
+}
+.stream-record summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.stream-record summary small {
+  color: var(--secondary);
+  margin-left: auto;
+}
+.stream-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 15px;
+}
+.stream-images > div {
+  min-width: 0;
+}
+.stream-images h3 {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+#stream-info,
+#partiql-status {
+  font-size: 12px;
+  color: var(--secondary);
+  margin: 16px 0;
+}
+@media (max-width: 700px) {
+  .read-options .field-pair {
+    grid-template-columns: 1fr;
+  }
+  .filter-row .field {
+    min-width: 110px;
+  }
+  .bulk-toolbar {
+    padding: 12px 15px;
+  }
+  .stream-images {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

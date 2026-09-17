@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 import { checkItemEditor } from "./item-editor.mjs";
+import { checkWorkspace } from "./workspace.mjs";
 
 const base = process.env.CONSOLE_TEST_URL;
 assert(
@@ -372,6 +373,15 @@ try {
   await page.reload();
   await page.getByText("Page 1 · 25 items evaluated").waitFor();
 
+  await checkWorkspace({
+    page,
+    table: name,
+    operation,
+    jsonResponse,
+    accessibility,
+    noPageOverflow,
+  });
+
   const downloaded = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
   const download = await downloaded;
@@ -453,7 +463,7 @@ try {
   assert.equal(await page.getByRole("dialog").count(), 0);
   assert.deepEqual(errors, [], "No uncaught browser errors");
   console.log(
-    "PASS: desktop/mobile, keyboard, accessibility, table/item CRUD, import preview, pagination, filtering, range queries, saved query persistence/management/isolation, export, purge, and delete.",
+    "PASS: desktop/mobile, keyboard, accessibility, table/item CRUD, import preview, pagination, filtering, range queries, saved queries, server filters, projections, Streams, TTL, PartiQL, bulk deletion, export, purge, and delete.",
   );
 } finally {
   if (createdTable) {

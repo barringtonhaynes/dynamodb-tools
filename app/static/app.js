@@ -347,6 +347,8 @@ async function renderDetail(generation = state.generation) {
   main.innerHTML = `<a class="back-link" href="#tables">${icon("left")}All tables</a><div class="page-heading table-heading"><div><h1>${esc(name)}${statusTag(detail.TableStatus)}</h1><div class="detail-metrics"><span>Partition key<strong class="mono">${esc(pk)}</strong></span>${sk ? `<span>Sort key<strong class="mono">${esc(sk)}</strong></span>` : ""}<span>Items (est.)<strong>${fmt(detail.ItemCount)}</strong></span><span>Size<strong>${bytes(detail.TableSizeBytes)}</strong></span></div></div><div class="heading-actions">${button("Export", "export", "download")}${button("Add item", "add-item", "plus", "primary")}</div></div>${activeBanner()}<div class="tabs" role="tablist" aria-label="Table views">${[
     ["items", "Items", "table"],
     ["import", "Import data", "upload"],
+    ["streams", "Streams", "activity"],
+    ["partiql", "PartiQL", "code"],
     ["schema", "Schema & indexes", "layers"],
     ["manage", "Manage table", "settings"],
   ]
@@ -372,6 +374,10 @@ async function renderDetailTab() {
   if (state.detailTab === "items") {
     renderExplorer();
     await loadItems();
+  } else if (state.detailTab === "streams") {
+    await renderStreams();
+  } else if (state.detailTab === "partiql") {
+    renderPartiQL();
   } else if (state.detailTab === "schema") {
     const d = state.detail;
     const indexes = (d.GlobalSecondaryIndexes || []).concat(
@@ -385,6 +391,7 @@ async function renderDetailTab() {
     await loadMounted(generation);
   } else {
     content.innerHTML = `<section class="panel"><div class="panel-heading"><div><h2>Table configuration</h2><p>Update capacity or create, update, and delete secondary indexes.</p></div>${button("Update schema", "update-schema", "code")}</div><div class="panel-body"><p class="info-note" style="margin:0">Schema changes use the DynamoDB UpdateTable format. Existing data stays in place. Primary keys cannot be changed after table creation.</p></div></section><section class="panel danger-panel"><div class="panel-heading"><h2>Destructive actions</h2></div><div class="panel-body"><div class="danger-action"><div><h3>Purge all items</h3><p>Empty this table while keeping its schema and indexes. This cannot be undone.</p></div>${button("Purge table", "purge-table", "trash", "danger-outline")}</div><div class="danger-action"><div><h3>Delete this table</h3><p>Remove the table, every item, and all its indexes. This cannot be undone.</p></div>${button("Delete table", "delete-table", "trash", "danger-outline")}</div></div></section>`;
+    await renderTTL(content, generation);
   }
 }
 function renderExplorer() {
@@ -393,11 +400,12 @@ function renderExplorer() {
       d.LocalSecondaryIndexes || [],
     );
   document.getElementById("detail-content").innerHTML =
-    `<section class="panel"><div id="saved-query-bar" class="saved-query-bar"></div><form id="query-form" class="query-bar"><div class="field"><label for="query-mode">Explore with</label><select id="query-mode"><option value="scan">Scan</option><option value="query">Query</option></select></div><div class="field"><label for="query-index">Table / index</label><select id="query-index"><option value="">Primary index</option>${indexes.map((i) => `<option value="${esc(i.IndexName)}">${esc(i.IndexName)}</option>`).join("")}</select></div><div class="field"><label for="query-limit">Page size</label><select id="query-limit"><option>25</option><option>50</option><option>100</option></select></div><div id="query-fields" class="query-fields hidden"></div><button class="button primary" type="submit">${icon("play")}Run ${state.search.mode}</button><p class="query-note" id="query-note">Scan reads a page of items. Use Query to look up a partition key efficiently.</p></form><div class="panel-toolbar"><label class="search">${icon("search")}<input id="item-filter" placeholder="Filter this page…" aria-label="Filter items on this page"></label><div class="button-group"><span id="item-result-label" class="hint"></span>${button("Refresh", "reload-items", "refresh", "small")}</div></div><div id="items-container"><div class="empty"><span class="spinner"></span></div></div><div class="panel-foot"><span id="page-label">Loading items…</span><div class="pagination"><button class="button" data-action="prev-page" disabled>${icon("left")}Previous</button><button class="button" data-action="next-page" disabled>Next${icon("arrow")}</button></div></div></section>`;
+    `<section class="panel"><div id="saved-query-bar" class="saved-query-bar"></div><form id="query-form" class="query-bar"><div class="field"><label for="query-mode">Explore with</label><select id="query-mode"><option value="scan">Scan</option><option value="query">Query</option></select></div><div class="field"><label for="query-index">Table / index</label><select id="query-index"><option value="">Primary index</option>${indexes.map((i) => `<option value="${esc(i.IndexName)}">${esc(i.IndexName)}</option>`).join("")}</select></div><div class="field"><label for="query-limit">Page size</label><select id="query-limit"><option>25</option><option>50</option><option>100</option></select></div><div id="query-fields" class="query-fields hidden"></div><button class="button primary" type="submit">${icon("play")}Run ${state.search.mode}</button><p class="query-note" id="query-note">Scan reads a page of items. Use Query to look up a partition key efficiently.</p><div id="read-options" class="read-options"></div></form><div class="panel-toolbar"><label class="search">${icon("search")}<input id="item-filter" placeholder="Filter this page…" aria-label="Filter items on this page"></label><div class="button-group"><span id="item-result-label" class="hint"></span>${button("Refresh", "reload-items", "refresh", "small")}</div></div><div class="bulk-toolbar"><span id="selection-count">Select items to act on this page</span><div class="button-group"><button type="button" class="button small" data-action="export-page">Export page</button><button type="button" class="button small danger-outline" id="delete-selected" data-action="delete-selected" disabled>Delete selected</button></div></div><div id="items-container"><div class="empty"><span class="spinner"></span></div></div><div class="panel-foot"><span id="page-label">Loading items…</span><div class="pagination"><button class="button" data-action="prev-page" disabled>${icon("left")}Previous</button><button class="button" data-action="next-page" disabled>Next${icon("arrow")}</button></div></div></section>`;
   document.getElementById("query-mode").value = state.search.mode;
   document.getElementById("query-index").value = state.search.index || "";
   document.getElementById("query-limit").value = state.search.limit;
   renderSavedQueries();
+  renderReadOptions();
   renderQueryFields();
   document.getElementById("query-mode").onchange = renderQueryFields;
   document.getElementById("query-index").onchange = renderQueryFields;
@@ -469,6 +477,7 @@ function readQueryForm() {
     }
     request.ascending = document.getElementById("query-order").value === "asc";
   }
+  Object.assign(request, readOptions());
   return request;
 }
 async function runQuery(event) {
@@ -748,18 +757,23 @@ function renderItems() {
     );
   const container = document.getElementById("items-container");
   if (!container) return;
+  resetSelection();
   if (!items.length) {
     container.innerHTML = empty(
       filter
         ? "No matches on this page"
-        : state.search.mode === "query"
-          ? "No matching items"
-          : "Nothing here yet",
+        : state.search.filters?.length || state.search.filterExpression
+          ? "No matches in this read page"
+          : state.search.mode === "query"
+            ? "No matching items"
+            : "Nothing here yet",
       filter
         ? "Try another filter or move to the next page."
-        : state.search.mode === "query"
-          ? "Try a different partition key or sort condition."
-          : "Add your first item or import a CSV or JSON file.",
+        : state.search.filters?.length || state.search.filterExpression
+          ? "Filters apply after reading. Continue to the next page if available, or adjust your filters."
+          : state.search.mode === "query"
+            ? "Try a different partition key or sort condition."
+            : "Add your first item or import a CSV or JSON file.",
       filter ? "" : button("Add item", "add-item", "plus", "primary"),
     );
     return;
@@ -768,7 +782,8 @@ function renderItems() {
   const columns = [
     ...new Set([...keys, ...items.flatMap(({ item }) => Object.keys(item))]),
   ];
-  container.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table class="data-table" aria-label="Table items"><thead><tr>${columns.map((c) => `<th>${keys.includes(c) ? '<span style="color:var(--purple);margin-right:5px">⌑</span>' : ""}${esc(c)}<span class="attr-type">${esc(Object.keys(items.find(({ item }) => item[c])?.item[c] || {})[0] || "")}</span></th>`).join("")}<th><span class="sr-only">Edit item</span></th></tr></thead><tbody>${items.map(({ item, i }) => `<tr>${columns.map((c) => `<td title="${esc(attrDisplay(item[c]))}">${esc(attrDisplay(item[c]))}</td>`).join("")}<td class="row-actions"><button class="icon-button" data-action="edit-item" data-row="${i}" aria-label="Open item ${esc(attrDisplay(item[keys[0]]))}" title="View or edit item">${icon("edit")}</button></td></tr>`).join("")}</tbody></table></div>`;
+  container.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table class="data-table" aria-label="Table items"><thead><tr><th><input type="checkbox" id="select-page" aria-label="Select all visible items"></th>${columns.map((c) => `<th>${keys.includes(c) ? '<span style="color:var(--purple);margin-right:5px">⌑</span>' : ""}${esc(c)}<span class="attr-type">${esc(Object.keys(items.find(({ item }) => item[c])?.item[c] || {})[0] || "")}</span></th>`).join("")}<th><span class="sr-only">Edit item</span></th></tr></thead><tbody>${items.map(({ item, i }) => `<tr><td><input type="checkbox" class="item-selection" data-row="${i}" aria-label="Select item ${esc(attrDisplay(item[keys[0]]))} ${esc(keys[1] ? attrDisplay(item[keys[1]]) : "")}"></td>${columns.map((c) => `<td title="${esc(attrDisplay(item[c]))}">${esc(attrDisplay(item[c]))}</td>`).join("")}<td class="row-actions"><button class="icon-button" data-action="edit-item" data-row="${i}" aria-label="Open item ${esc(attrDisplay(item[keys[0]]))}" title="View or edit item">${icon("edit")}</button></td></tr>`).join("")}</tbody></table></div>`;
+  bindSelection();
 }
 function importLayout(withSelect = true) {
   return `<div class="split"><section class="panel"><div class="panel-heading"><div><h2>Bring your data</h2><p>A fresh file. An existing table. Ready when you are.</p></div><span class="tag purple">CSV + JSON</span></div><div class="panel-body">${withSelect ? `<div class="field"><label for="import-table">Destination table</label><select id="import-table"><option value="">Choose a table…</option>${state.overview.tables.map((t) => `<option value="${esc(t.TableName)}" ${state.importTable === t.TableName ? "selected" : ""}>${esc(t.TableName)}</option>`).join("")}</select></div>` : `<p class="info-note" style="margin:0 0 17px">Import into <strong>${esc(state.importTable)}</strong></p>`}<label class="upload-zone" id="upload-zone"><span class="upload-icon">${icon("upload")}</span><h3>Drop a file here, or <span style="color:var(--purple)">browse files</span></h3><p>CSV, JSON, or DynamoDB JSON · up to 10 MB</p><span class="tag">Your file is validated before import</span><input type="file" id="upload-file" accept=".csv,.json" aria-label="Choose a CSV or JSON file to import"></label><div id="upload-preview"></div><p class="info-note">Items with matching primary keys will be replaced. Imports are not transactional: if a later batch fails, earlier writes remain. CSV values are imported as strings.</p></div></section><div><section class="panel"><div class="panel-heading"><div><h2>Mounted files</h2><p>Ready-to-load files from your data folder.</p></div>${icon("file")}</div><div class="panel-body" id="mounted-files">${empty("Choose a destination", "Select a table to see its mounted data files.", "", true)}</div></section><div class="note-card">${icon("info")}<div><h3>Keep your types intact.</h3><p>Plain JSON supports nested data and exact decimals. DynamoDB JSON also preserves sets and binary values. Exports use this format so you can bring them right back.</p></div></div></div></div>`;
@@ -1219,6 +1234,7 @@ async function submitDialog(event) {
   submit.disabled = true;
   document.getElementById("dialog-error").textContent = "";
   try {
+    if (await submitWorkspaceDialog(context)) return;
     if (["save-query", "delete-saved-query"].includes(context.kind)) {
       submitSavedQuery(context);
       return;
@@ -1404,6 +1420,7 @@ async function action(event) {
   if (!target || target.disabled) return;
   const name = target.dataset.action;
   try {
+    if (await workspaceAction(name, target)) return;
     if (
       [
         "item-view",

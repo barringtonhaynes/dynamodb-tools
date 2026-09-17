@@ -33,6 +33,10 @@ class ConsoleRoute(APIRoute):
                 code = error.response["Error"]["Code"]
                 status = {
                     "ResourceNotFoundException": 404,
+                    "ExpiredIteratorException": 410,
+                    "TrimmedDataAccessException": 410,
+                    "TransactionCanceledException": 409,
+                    "UnknownOperationException": 501,
                     "ValidationException": 400,
                     "ResourceInUseException": 409,
                     "ConditionalCheckFailedException": 409,
@@ -61,6 +65,26 @@ class ConsoleRoute(APIRoute):
 router = APIRouter(prefix="/api", route_class=ConsoleRoute)
 
 
+class FilterRule(BaseModel):
+    attribute: str = Field(min_length=1, max_length=255)
+    operator: Literal[
+        "=",
+        "<>",
+        "<",
+        "<=",
+        ">",
+        ">=",
+        "contains",
+        "begins_with",
+        "between",
+        "exists",
+        "not_exists",
+        "attribute_type",
+    ] = "="
+    value: dict | None = None
+    end: dict | None = None
+
+
 class SearchRequest(BaseModel):
     mode: Literal["scan", "query"] = "scan"
     index: str | None = None
@@ -71,6 +95,13 @@ class SearchRequest(BaseModel):
     ascending: bool = True
     limit: int = Field(default=25, ge=1, le=100)
     cursor: str | None = Field(default=None, max_length=16384)
+    filters: list[FilterRule] = Field(default_factory=list, max_length=20)
+    filterJoin: Literal["AND", "OR"] = "AND"
+    filterExpression: str = Field(default="", max_length=4096)
+    expressionNames: dict[str, str] = Field(default_factory=dict)
+    expressionValues: dict[str, dict] = Field(default_factory=dict)
+    projection: list[str] = Field(default_factory=list, max_length=100)
+    consistent: bool = False
 
 
 class SchemaRequest(BaseModel):

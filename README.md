@@ -30,13 +30,16 @@ CSS, JavaScript, and icons without external fonts, CDNs, or analytics.
 | --- | --- |
 | Overview | Check connectivity, table counts, estimated item counts and storage, recent activity, and quick actions. |
 | Tables | Find tables by name. Create one with a guided key form or a full DynamoDB schema. |
-| Item explorer | Scan or query primary and secondary indexes, use sort-key comparisons or ranges, navigate pages, and filter the current page. |
+| Item explorer | Scan/query tables and indexes; combine server-side filters with AND/OR or write expressions; select returned attributes, request consistent reads, and navigate pages. Page filtering remains available for quick local searches. |
+| Bulk actions | Select visible items and delete them atomically with confirmation. Export the visible page, including its chosen attributes. |
+| Streams | Enable/disable change capture, choose image contents, discover streams and shards, read from the oldest record, from now, or a sequence number; inspect before/after images and export a read. |
+| PartiQL | Run parameterized SELECT, INSERT, UPDATE, or DELETE statements. Writes require confirmation; reads support continuation and result export. |
 | Saved queries | Save named scans and queries, reload them from the first page, rename or update them, and delete saved definitions. |
 | Item editor | Switch between DynamoDB JSON, standard JSON, and an editable attribute table. Format and validate JSON, inspect type help, and create, edit, duplicate, or delete items. Creating an item refuses to overwrite an existing key. |
 | Imports | Drag in CSV, plain JSON, or DynamoDB JSON; validate the entire file and preview records before importing. Load files from mounted folders too. |
 | Exports | Download a complete paginated table scan as DynamoDB JSON, preserving numbers, sets, nested values, and base64 binary data. |
 | Schema | Inspect keys, indexes, capacity, and the complete table definition. Apply `UpdateTable` JSON to change capacity or manage global indexes. |
-| Manage | Purge a table's items or delete the whole table, with exact-name confirmation. |
+| Manage | Configure TTL expiration attributes. Purge a table's items or delete the whole table, with exact-name confirmation. |
 | Activity | Follow queued, running, completed, and failed operations. Shows up to 100 recent entries in the current server session. |
 | Settings | Inspect endpoint, region, mounted path, and startup-task configuration. Change these through the container environment. |
 
@@ -44,7 +47,7 @@ The layout adapts to small screens. Forms have accessible labels, dialogs suppor
 Escape, tabs support arrow keys, and `/` focuses the current table or page filter.
 Saved queries persist in browser storage, scoped to the console origin, DynamoDB
 endpoint, region, and table. They retain the index, exact key values, sort order,
-page size, and page filter. They are not shared between browsers; clearing site
+page size, server filters, returned attributes, consistency, and page filter. They are not shared between browsers; clearing site
 data removes them. Loading checks that the saved index and key schema still exist.
 
 Item editor views share one draft. Switching or formatting validates the current
@@ -57,6 +60,48 @@ Primary keys are fixed during editing; use Duplicate to create new keys. Changes
 are written only when you choose Create item or Save changes.
 
 Long-running table changes and imports use a bounded, sequential background queue.
+
+### Filters and read behavior
+
+The filter builder supports comparisons, ranges, contains, begins-with, existence,
+and type checks. Attribute names in the builder and returned-attribute list are
+literal, including dots and reserved words. For nested document paths, IN, NOT,
+or grouped expressions, use Expression mode with name aliases and typed values.
+
+Filters run **after** DynamoDB evaluates a read page; they do not lower consumed
+read capacity. An empty filtered page can still have a Next button. Returned
+attributes always include the table's primary keys so item editing can fetch the
+complete record. Global secondary indexes reject strongly consistent reads.
+Saved queries include these options. Export page exports only the visible records
+and returned attributes; Export in the table header still exports the whole table.
+
+### Streams, TTL, and PartiQL
+
+The Streams tab reads the same endpoint as the database. Configure capture, then
+refresh streams after the operation completes. Select a shard and starting point.
+Read next continues the last read; empty reads can have a continuation. The viewer
+reads up to 50 records at a time, without consuming/deleting them. Expired iterators
+require a fresh read. Changing the view type requires disabling and re-enabling the
+stream. Stream data is temporary; it is not a backup or a durable event archive.
+
+TTL uses a numeric attribute containing Unix epoch seconds. Disabling the existing
+attribute is required before switching to another. DynamoDB Local can accept TTL
+configuration without automatically removing expired items; this console does not
+schedule its own expiry worker.
+
+The PartiQL tab starts with the current table but may target any table in this
+connection. Use `?` placeholders and an array of DynamoDB JSON parameter values.
+Writes are singleton statements and require a review dialog. SELECT results follow
+DynamoDB's continuation token. When the service returns a last evaluated key with
+no token, the UI explicitly reports an incomplete result and asks for a narrower
+query. No writes are run by opening a tab or browsing results.
+
+DynamoDB Local differs from AWS: it does not implement production throughput
+behavior, tags, point-in-time recovery, or vector indexes. The console focuses on
+local data development and does not expose simulated controls for those services.
+See [AWS's local usage notes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.UsageNotes.html),
+[filter behavior](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html),
+and [stream iterator behavior](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_streams_GetShardIterator.html).
 
 ## Use with your existing DynamoDB container
 
@@ -196,6 +241,13 @@ See **`/docs`** for the full request schemas and try-it controls.
 | `POST /api/tables/{name}/items/get` | Fetch an item by typed `key` |
 | `PUT /api/tables/{name}/items` | Create/edit a typed `item`; optionally provide `originalKey` |
 | `DELETE /api/tables/{name}/items` | Delete by typed `key` |
+| `POST /api/tables/{name}/items/delete-selected` | Atomically delete up to 100 selected keys with table-name confirmation |
+| `GET /api/tables/{name}/streams` | Discover stream configuration and available streams |
+| `PUT /api/tables/{name}/streams` | Queue stream enable/disable and view configuration |
+| `GET /api/tables/{name}/streams/shards?arn=…` | List all shards for a selected stream |
+| `POST /api/tables/{name}/streams/records` | Read a shard using a starting position or continuation |
+| `GET/PUT /api/tables/{name}/ttl` | Inspect or queue TTL configuration |
+| `POST /api/partiql` | Execute one parameterized statement; writes require `allowWrite` |
 | `GET /api/tables/{name}/files` | Mounted file metadata |
 | `POST /api/tables/{name}/imports/preview` | Validate `filename` and `content`; preview five records |
 | `POST /api/tables/{name}/imports` | Queue a validated file import |
