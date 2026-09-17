@@ -2571,3 +2571,30 @@ meter {
   font-family: monospace;
   margin: 8px 0;
 }
+
+.table-picker {
+  margin-bottom: 20px;
+}
+.table-picker form {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.table-picker .field {
+  flex: 1;
+  min-width: 0;
+}
+.table-picker button {
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .table-picker form {
+    flex-direction: column;
+  }
+  .table-picker button {
+    margin-top: 0;
+  }
+  .table-picker .field {
+    width: 100%;
+  }
+}

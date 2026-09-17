@@ -117,7 +117,12 @@ async function renderConnectionForm(generation) {
         request,
       );
       feedback.textContent = `Connected · ${result.account ? "AWS account " + result.account : result.endpoint} · ${result.region} · ${result.readOnly ? "read-only" : "writes enabled"}`;
-      if (save) location.reload();
+      if (result.tableDiscoveryWarning)
+        feedback.textContent += " · " + result.tableDiscoveryWarning;
+      if (save) {
+        history.replaceState(null, "", "#tables");
+        location.reload();
+      }
     } catch (error) {
       feedback.textContent = error.message;
     } finally {

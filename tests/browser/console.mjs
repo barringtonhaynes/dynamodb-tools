@@ -3,7 +3,11 @@ import fs from "node:fs/promises";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 import { checkItemEditor } from "./item-editor.mjs";
-import { checkAWSConnectionUI, checkAWSWriteSafetyUI } from "./connection.mjs";
+import {
+  checkAWSConnectionUI,
+  checkAWSWriteSafetyUI,
+  checkTableDiscoveryUI,
+} from "./connection.mjs";
 import { checkInsights } from "./insights.mjs";
 import { checkWorkspace } from "./workspace.mjs";
 import { assertIconBounds } from "./icon-layout.mjs";
@@ -402,6 +406,12 @@ try {
     noPageOverflow,
   });
   await checkAWSWriteSafetyUI({
+    page,
+    table: name,
+    accessibility,
+    noPageOverflow,
+  });
+  await checkTableDiscoveryUI({
     page,
     table: name,
     accessibility,

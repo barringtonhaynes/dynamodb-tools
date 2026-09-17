@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 import boto3
+from botocore.exceptions import ClientError
 from fastapi import APIRouter
 
 from . import connection
@@ -39,7 +40,17 @@ def candidate(preferences):
 def probe(config):
     database = connection.client(config=config)
     info = connection.connection_info(database, config)
-    database.list_tables(Limit=1)
+    try:
+        database.list_tables(Limit=1)
+    except ClientError as error:
+        if (
+            config.dynamodb_mode != "aws"
+            or error.response["Error"]["Code"] != "AccessDeniedException"
+        ):
+            raise
+        info[
+            "tableDiscoveryWarning"
+        ] = "Sign-in verified, but listing tables is not permitted. Open a known table by name."
     return info
 
 

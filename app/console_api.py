@@ -231,6 +231,7 @@ def overview():
     )
     return {
         "tables": to_wire(tables),
+        "tableDiscoveryWarning": service.discovery_error,
         "files": files,
         "connection": connection,
         "startup": get_startup_tasks_status(),

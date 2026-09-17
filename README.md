@@ -288,12 +288,20 @@ and do not create a general write-unlock window. Read-only mode still blocks wri
 entirely. Local development keeps its existing workflow. These are accident-prevention
 controls, not authentication or a replacement for IAM. There is no automatic undo.
 
-The connection verifies identity through STS and needs `dynamodb:ListTables` and
-`dynamodb:DescribeTable` to show the workspace. Grant the data actions you need
+After **Save & connect**, the console opens **Tables**. It verifies identity through
+STS, discovers table names with `dynamodb:ListTables` (including every result page),
+and uses `dynamodb:DescribeTable` for each table's details. Click a table name or use
+**Select or enter a table → Open table**. The list belongs to the selected account
+and region; listing a name does not imply permission to read or write its items.
+
+A table whose details are denied remains listed with an explicit status; other
+tables keep working. If listing itself is denied, connection testing and saving
+still succeed after identity verification, with a warning. Enter a known table name
+to access it directly, subject to its permissions. Missing details display as
+unavailable instead of zero. Grant the data actions you need
 (e.g. `GetItem`, `Scan`, `Query`, `PartiQLSelect`, `DescribeTimeToLive`) on the
 relevant tables and indexes. Streams additionally need `ListStreams`,
 `DescribeStream`, `GetShardIterator`, and `GetRecords` for the appropriate streams.
-An account with restricted table permissions may reject the all-table overview.
 Reads, sampling, and exports use real AWS capacity even in read-only mode. Bind
 the app to localhost; it does not add a web login or multi-user access controls.
 

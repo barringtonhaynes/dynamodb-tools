@@ -140,6 +140,9 @@ export async function checkAWSConnectionUI({
       page.waitForEvent("load"),
       page.getByRole("button", { name: "Save & connect", exact: true }).click(),
     ]);
+    await page.getByRole("heading", { name: "Tables", exact: true }).waitFor();
+    assert.equal(new URL(page.url()).hash, "#tables");
+    await page.goto(new URL("/#settings", page.url()).href);
     await page
       .getByRole("heading", { name: "Choose a connection", exact: true })
       .waitFor();
@@ -295,6 +298,93 @@ export async function checkAWSWriteSafetyUI({
   } finally {
     await page.unroute("**/api/overview");
     await page.unroute(target);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(new URL("/#tables/" + table, page.url()).href);
+    await page.reload();
+    await page.getByRole("tab", { name: "Items", exact: true }).waitFor();
+  }
+}
+
+export async function checkTableDiscoveryUI({
+  page,
+  table,
+  accessibility,
+  noPageOverflow,
+}) {
+  let restricted = false;
+  await page.route("**/api/overview", async (route) => {
+    const result = await (await route.fetch()).json();
+    Object.assign(result.connection, {
+      mode: "aws",
+      account: "123456789012",
+      region: "eu-west-2",
+      readOnly: true,
+    });
+    result.tables = restricted
+      ? []
+      : [
+          ...result.tables,
+          {
+            TableName: "restricted_table",
+            metadataUnavailable: true,
+            accessMessage: "Table details are not permitted",
+          },
+        ];
+    result.tableDiscoveryWarning = restricted
+      ? "AWS does not allow listing tables with this sign-in. Enter a known table name to open it; that table's permissions still apply."
+      : null;
+    await route.fulfill({ json: result });
+  });
+  try {
+    await page.goto(new URL("/#tables", page.url()).href);
+    await page.reload();
+    await page.getByText("Details unavailable", { exact: true }).waitFor();
+    assert.equal(
+      await page.locator(`#available-tables option[value="${table}"]`).count(),
+      1,
+    );
+    await page
+      .getByLabel("Search tables", { exact: true })
+      .fill("restricted_table");
+    assert.equal(await page.locator("#table-rows tr").count(), 1);
+    await page.getByLabel("Search tables", { exact: true }).fill("");
+    await accessibility("aws-table-picker");
+    await page.screenshot({
+      path: "test-results/aws-table-picker.png",
+      fullPage: true,
+    });
+    await page
+      .getByLabel("Select or enter a table", { exact: true })
+      .fill(table);
+    await page.getByRole("button", { name: "Open table", exact: true }).click();
+    await page.getByRole("heading", { name: new RegExp(table) }).waitFor();
+    restricted = true;
+    await page.goto(new URL("/#tables", page.url()).href);
+    await page.reload();
+    await page
+      .getByRole("heading", { name: "Table discovery is restricted" })
+      .waitFor();
+    assert.equal(
+      await page
+        .getByRole("heading", { name: "A fresh start for your data" })
+        .count(),
+      0,
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await noPageOverflow();
+    await accessibility("aws-discovery-restricted");
+    await page.screenshot({
+      path: "test-results/aws-table-picker-mobile.png",
+      fullPage: true,
+    });
+    await page
+      .getByLabel("Select or enter a table", { exact: true })
+      .fill(table);
+    await page.getByRole("button", { name: "Open table", exact: true }).click();
+    await page.getByRole("heading", { name: new RegExp(table) }).waitFor();
+    await page.getByRole("tab", { name: "Items", exact: true }).waitFor();
+  } finally {
+    await page.unroute("**/api/overview");
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(new URL("/#tables/" + table, page.url()).href);
     await page.reload();

@@ -4,6 +4,8 @@ import binascii
 import json
 from hashlib import sha256
 
+from botocore.exceptions import ClientError
+
 from .connection import client
 from .data_codec import attribute_from_wire, item_from_wire, to_wire
 from .editor_codec import convert_item
@@ -19,10 +21,36 @@ class ConsoleService:
         return self.client.describe_table(TableName=name)["Table"]
 
     def tables(self):
+        self.discovery_error = None
         names = []
-        for page in self.client.get_paginator("list_tables").paginate():
-            names.extend(page["TableNames"])
-        return [self.describe(name) for name in sorted(names)]
+        try:
+            for page in self.client.get_paginator("list_tables").paginate():
+                names.extend(page["TableNames"])
+        except ClientError as error:
+            if error.response["Error"]["Code"] != "AccessDeniedException":
+                raise
+            self.discovery_error = (
+                "AWS does not allow listing tables with this sign-in. "
+                "Enter a known table name to open it; that table's permissions still apply."
+            )
+        tables = []
+        for name in sorted(set(names)):
+            try:
+                tables.append(self.describe(name))
+            except ClientError as error:
+                code = error.response["Error"]["Code"]
+                if code not in {"AccessDeniedException", "ResourceNotFoundException"}:
+                    raise
+                tables.append(
+                    {
+                        "TableName": name,
+                        "metadataUnavailable": True,
+                        "accessMessage": "Table details are not permitted"
+                        if code == "AccessDeniedException"
+                        else "Table no longer available",
+                    }
+                )
+        return tables
 
     @staticmethod
     def cursor_encode(key, scope):
