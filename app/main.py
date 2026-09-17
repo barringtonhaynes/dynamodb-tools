@@ -13,6 +13,7 @@ from .connection import READ_ONLY_MESSAGE, read_request
 from .connection_api import router as connection_router
 from .console_api import router as console_router
 from .controller import router
+from .copy_api import router as copy_router
 from .operations import operations
 from .startup_tasks import startup_tasks
 from .user_state import router as user_state_router
@@ -35,6 +36,7 @@ app.include_router(router)
 
 app.include_router(connection_router)
 app.include_router(console_router)
+app.include_router(copy_router)
 app.include_router(workspace_router)
 app.include_router(user_state_router)
 static_directory = Path(__file__).parent / "static"

@@ -231,6 +231,30 @@ try {
     .click();
   await page.getByText("Query plan ready", { exact: true }).waitFor();
   assert.equal(await page.locator("#page-label").textContent(), "Not run yet");
+  await page
+    .getByRole("button", { name: "Copy matching data", exact: true })
+    .click();
+  await page.getByRole("heading", { name: "Copy data", exact: true }).waitFor();
+  await page
+    .getByRole("button", { name: "Capture & preview", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Export transformed JSON", exact: true })
+    .waitFor();
+  assert.equal(await page.locator("#copy-source-table").inputValue(), name);
+  assert.equal(await page.locator("#copy-policy option").count(), 2);
+  const copyAxe = await new AxeBuilder({ page })
+    .setLegacyMode()
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  assert.deepEqual(
+    copyAxe.violations.map((v) => v.id),
+    [],
+  );
+  await page.screenshot({
+    path: "test-results/desktop-copy-data.png",
+    fullPage: true,
+  });
   assert.deepEqual(errors, []);
   await app.close();
   app = undefined;

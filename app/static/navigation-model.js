@@ -166,6 +166,7 @@ const workspaceNavigation = (() => {
           : []),
       ]),
       link("imports", "Import data", "imports", "cloud-upload"),
+      link("copies", "Copy data", "copies", "copy"),
       link("activity", "Activity", "activity", "history"),
       group("settings", "Settings", "settings-gear", [
         link(
@@ -186,7 +187,7 @@ const workspaceNavigation = (() => {
   const validRoute = (route) =>
     typeof route === "string" &&
     route.length < 4096 &&
-    /^(overview|imports|activity|settings(?:\/(connection|workspace|startup))?|tables(?:\/[A-Za-z0-9_.%-]+(?:\?(?:view=(items|schema|streams|model|planner|partiql|manage)|query=[A-Za-z0-9%_.~!()*'-]+))?)?)$/.test(
+    /^(overview|imports|copies|activity|settings(?:\/(connection|workspace|startup))?|tables(?:\/[A-Za-z0-9_.%-]+(?:\?(?:view=(items|schema|streams|model|planner|partiql|manage)|query=[A-Za-z0-9%_.~!()*'-]+))?)?)$/.test(
       route,
     );
   return {

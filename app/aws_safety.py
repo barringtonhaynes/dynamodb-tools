@@ -36,6 +36,7 @@ def describe(method, path, body):
         )
     actions = {
         "purge": "Purge every item",
+        "execute": "Copy staged items into this table",
         "delete-selected": "Delete selected items",
         "streams": "Change Streams",
         "ttl": "Change TTL",

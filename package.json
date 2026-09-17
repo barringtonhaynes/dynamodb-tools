@@ -2,7 +2,7 @@
   "name": "dynamodb-tools",
   "private": true,
   "scripts": {
-    "check": "node --check app/static/query-planner.js && node --check app/static/local-workspace.js && node --check app/static/connection.js && node --check app/static/insights.js && node --check app/static/app.js && node --check app/static/workspace.js && prettier --check app/static tests/browser",
+    "check": "node --check app/static/copy-data.js && node --check app/static/query-planner.js && node --check app/static/local-workspace.js && node --check app/static/connection.js && node --check app/static/insights.js && node --check app/static/app.js && node --check app/static/workspace.js && prettier --check app/static tests/browser",
     "format": "prettier --write app/static tests/browser",
     "test:browser": "node tests/browser/console.mjs",
     "check:hosts": "node --check packaging/desktop/main.cjs && node --check packaging/vscode/extension.cjs && node --check packaging/shared/service.cjs && node --check packaging/vscode/bridge.js",
@@ -21,7 +21,7 @@
     "@vscode/vsce": "4.0.0",
     "@vscode/test-electron": "^2.5.2"
   },
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A local DynamoDB workspace for desktop and VS Code",
   "author": "Barrington Haynes",
   "license": "Apache-2.0",

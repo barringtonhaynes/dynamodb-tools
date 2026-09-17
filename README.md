@@ -39,6 +39,7 @@ CSS, JavaScript, and icons without external fonts, CDNs, or analytics.
 | Streams | Enable/disable change capture, choose image contents, discover streams and shards, read from the oldest record, from now, or a sequence number; inspect before/after images and export a read. |
 | PartiQL | Run parameterized SELECT, INSERT, UPDATE, or DELETE statements. Writes require confirmation; reads support continuation and result export. |
 | Saved queries | Save named scans and queries, reload them from the first page, rename or update them, and delete saved definitions. |
+| Copy data | Capture a query or filtered scan; remove, rename or set attributes and timestamps; switch connections; preview and copy with conditional skip-existing or explicit whole-item replacement. |
 | Query planner | Compare table, GSI and LSI access paths; identify key conditions versus post-read filters, projection gaps and sparse coverage. Prepare a query, export a plan, or propose an index design. |
 | Data model | Inspect bounded samples for entity types, key prefixes, attribute presence, partition collections, and sparse-index eligibility. Open partition, prefix, and index queries directly. |
 | Item editor | Switch between DynamoDB JSON, standard JSON, and an editable attribute table. Syntax-highlight and validate JSON, check table/index keys and an optional entity schema, inspect estimated sizes and type help, and create, edit, duplicate, or delete items. Creating an item refuses to overwrite an existing key. |
@@ -89,6 +90,46 @@ attributes always include the table's primary keys so item editing can fetch the
 complete record. Global secondary indexes reject strongly consistent reads.
 Saved queries include these options. Export page exports only the visible records
 and returned attributes; Export in the table header still exports the whole table.
+
+### Copy selected data between databases
+
+Prepare a query or filtered scan in **Items**, then choose **Copy matching data**.
+Saved queries and the Query planner can prepare that selection. Alternatively,
+open **Copy data** in the sidebar and enter a source table to scan. The text
+filter over the displayed page is not a database filter and is not copied.
+
+Add ordered transformations to remove or rename top-level attributes, set a
+literal JSON value, or stamp a fixed UTC ISO/epoch time on the captured batch.
+Names are literal, including dots. Numbers remain exact; untouched sets and
+binary values keep their types. A rename refuses to overwrite another field.
+Capture reads a query/scan and hydrates full base-table items when an index or
+projection was used, so limited index projections do not silently lose fields.
+This needs GetItem permission in addition to Query/Scan and DescribeTable.
+
+Review before/after examples and export the complete transformed DynamoDB JSON
+if needed. For another database, switch profile/region/endpoint in **Settings**,
+then return to **Copy data**: staging remains in service memory for 30 minutes.
+It disappears on expiry, discard or service restart and is not saved in the
+workspace file. At most four batches are retained. Captures are capped at 1,000
+matched items, 20 read pages and 10 MiB of transformed data; lower defaults apply.
+Partial selections are clearly marked and offer a continuation while still on
+the source connection. Reads consume capacity and are not a consistent snapshot.
+
+Choose an existing destination table and preview all items against its keys and
+indexes. Duplicate transformed keys are rejected. **Skip existing items** uses a
+conditional write, including for items created after preview. **Replace** writes
+whole items and removes old attributes absent from the copied data. Neither
+option merges attributes or changes table schemas. Type the destination phrase
+to run; AWS also requires the existing account/region/target approval and delay.
+Read-only destinations cannot run copies.
+
+Progress reports copied/skipped counts and successful writes' returned capacity.
+Stop takes effect between items. Copies are not atomic: earlier writes remain
+after a stop or failure, and a failed request can have an uncertain outcome.
+Review before retrying. A destination preview expires after five minutes, works
+once, and is invalidated by connection or schema changes. Connection switching
+waits for queued/running copies to finish. This is a small dataset utility, not a
+continuous replication or large-table migration service.
 
 ### Access-pattern query planner
 

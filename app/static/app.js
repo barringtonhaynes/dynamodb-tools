@@ -296,6 +296,7 @@ async function navigate() {
     "overview",
     "tables",
     "imports",
+    "copies",
     "activity",
     "settings",
   ].includes(route)
@@ -333,6 +334,7 @@ async function navigate() {
       overview: "Overview",
       tables: "Tables",
       imports: "Import data",
+      copies: "Copy data",
       activity: "Activity",
       settings: "Settings",
     }[state.route];
@@ -358,6 +360,7 @@ async function renderRoute() {
     else if (state.route === "tables" && !state.table) renderTables();
     else if (state.route === "tables") await renderDetail(generation);
     else if (state.route === "imports") await renderImports(generation);
+    else if (state.route === "copies") await renderCopyData(generation);
     else if (state.route === "activity") renderActivity();
     else if (state.route === "settings") {
       await renderSettings(generation);
@@ -487,7 +490,7 @@ function renderExplorer() {
       d.LocalSecondaryIndexes || [],
     );
   document.getElementById("detail-content").innerHTML =
-    `<section class="panel"><div id="saved-query-bar" class="saved-query-bar"></div><form id="query-form" class="query-bar"><div class="field"><label for="query-mode">Explore with</label><select id="query-mode"><option value="scan">Scan</option><option value="query">Query</option></select></div><div class="field"><label for="query-index">Table / index</label><select id="query-index"><option value="">Primary index</option>${indexes.map((i) => `<option value="${esc(i.IndexName)}">${esc(i.IndexName)}</option>`).join("")}</select></div><div class="field"><label for="query-limit">Page size</label><select id="query-limit"><option>25</option><option>50</option><option>100</option></select></div><div id="query-fields" class="query-fields hidden"></div><button class="button primary" type="submit">${icon("play")}Run ${state.search.mode}</button><p class="query-note" id="query-note">Scan reads a page of items. Use Query to look up a partition key efficiently.</p><div id="read-options" class="read-options"></div></form><div class="panel-toolbar"><label class="search">${icon("search")}<input id="item-filter" placeholder="Filter this page…" aria-label="Filter items on this page"></label><div class="button-group"><span id="item-result-label" class="hint"></span>${button("Refresh", "reload-items", "refresh", "small")}</div></div><div class="bulk-toolbar"><span id="selection-count">Select items to act on this page</span><div class="button-group"><button type="button" class="button small" data-action="export-page">Export page</button><button type="button" class="button small danger-outline" id="delete-selected" data-action="delete-selected" disabled>Delete selected</button></div></div><div id="items-container"><div class="empty"><span class="spinner"></span></div></div><div class="panel-foot"><span id="page-label">Loading items…</span><div class="pagination"><button class="button" data-action="prev-page" disabled>${icon("left")}Previous</button><button class="button" data-action="next-page" disabled>Next${icon("arrow")}</button></div></div></section>`;
+    `<section class="panel"><div id="saved-query-bar" class="saved-query-bar"></div><form id="query-form" class="query-bar"><div class="field"><label for="query-mode">Explore with</label><select id="query-mode"><option value="scan">Scan</option><option value="query">Query</option></select></div><div class="field"><label for="query-index">Table / index</label><select id="query-index"><option value="">Primary index</option>${indexes.map((i) => `<option value="${esc(i.IndexName)}">${esc(i.IndexName)}</option>`).join("")}</select></div><div class="field"><label for="query-limit">Page size</label><select id="query-limit"><option>25</option><option>50</option><option>100</option></select></div><div id="query-fields" class="query-fields hidden"></div><button class="button primary" type="submit">${icon("play")}Run ${state.search.mode}</button><p class="query-note" id="query-note">Scan reads a page of items. Use Query to look up a partition key efficiently.</p><div id="read-options" class="read-options"></div></form><div class="panel-toolbar"><label class="search">${icon("search")}<input id="item-filter" placeholder="Filter this page…" aria-label="Filter items on this page"></label><div class="button-group"><button type="button" class="button small" data-action="copy-matching">Copy matching data</button><span id="item-result-label" class="hint"></span>${button("Refresh", "reload-items", "refresh", "small")}</div></div><div class="bulk-toolbar"><span id="selection-count">Select items to act on this page</span><div class="button-group"><button type="button" class="button small" data-action="export-page">Export page</button><button type="button" class="button small danger-outline" id="delete-selected" data-action="delete-selected" disabled>Delete selected</button></div></div><div id="items-container"><div class="empty"><span class="spinner"></span></div></div><div class="panel-foot"><span id="page-label">Loading items…</span><div class="pagination"><button class="button" data-action="prev-page" disabled>${icon("left")}Previous</button><button class="button" data-action="next-page" disabled>Next${icon("arrow")}</button></div></div></section>`;
   document.getElementById("query-mode").value = state.search.mode;
   document.getElementById("query-index").value = state.search.index || "";
   document.getElementById("query-limit").value = state.search.limit;
@@ -1481,7 +1484,7 @@ async function refreshOperations() {
     const operations = await api("/api/operations");
     const completed = operations.filter(
       (o) =>
-        ["completed", "failed"].includes(o.status) &&
+        ["completed", "failed", "cancelled"].includes(o.status) &&
         state.operations.some(
           (old) =>
             old.id === o.id && ["queued", "running"].includes(old.status),
@@ -1493,12 +1496,13 @@ async function refreshOperations() {
     )
       ? "live-dot"
       : "";
+    if (state.route === "copies") renderCopyJobs(operations);
     if (state.route === "activity") renderActivity();
     for (const job of completed)
       toast(
         job.status === "failed"
           ? `${job.action} failed: ${job.detail}`
-          : `${job.action} completed${job.table ? " · " + job.table : ""}`,
+          : `${job.action} ${job.status}${job.table ? " · " + job.table : ""}`,
         job.status === "failed",
       );
     if (completed.length) {
@@ -1585,7 +1589,8 @@ async function action(event) {
         '<button class="button danger" type="submit">Delete saved query</button>',
         { ...context, kind: "delete-saved-query" },
       );
-    } else if (name === "refresh") await refreshOverview();
+    } else if (name === "copy-matching") copyFromItems();
+    else if (name === "refresh") await refreshOverview();
     else if (name === "create-table" || name === "create-guided")
       createTableDialog();
     else if (name === "create-advanced") createTableDialog(true);

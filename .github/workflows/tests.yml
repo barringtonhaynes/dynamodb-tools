@@ -64,6 +64,7 @@ jobs:
           done
           npm run test:browser
           node tests/browser/query-planner.mjs
+          node tests/browser/copy-data.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

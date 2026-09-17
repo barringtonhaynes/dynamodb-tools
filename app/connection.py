@@ -127,9 +127,11 @@ def read_request(method, path):
         "/api/connection/test",
     }:
         return True  # PartiQL SELECT is enforced at the SDK boundary.
+    if re.fullmatch(r"/api/copies/(?:[^/]+/discard|jobs/[^/]+/stop)/?", path):
+        return True  # Changes only transient local staging/control state.
     return bool(
         re.fullmatch(
-            r"/api/tables/[^/]+/(items/(search|get)|imports/preview|model|query-plan|streams/records)/?",
+            r"/api/tables/[^/]+/(items/(search|get)|imports/preview|copies/(capture|preview)|model|query-plan|streams/records)/?",
             path,
         )
     )

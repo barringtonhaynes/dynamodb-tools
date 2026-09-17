@@ -99,6 +99,19 @@ exports.check = async ({ webview, browser, root, port }) => {
     'document.getElementById("page-label")?.textContent === "Not run yet"',
   );
   assert.equal(await webview.evaluate("window.sidebarReadCount"), 0);
+  await click("Copy data");
+  await wait('!!document.getElementById("copy-source-form")');
+  assert.equal(await webview.evaluate("window.sidebarReadCount"), 0);
+  await webview.evaluate(
+    `document.getElementById("copy-source-table").value=${JSON.stringify(table)}; document.getElementById("copy-source-table").dispatchEvent(new Event("input", {bubbles:true})); document.getElementById("copy-source-form").requestSubmit()`,
+  );
+  await wait('!!document.getElementById("copy-export")');
+  assert(await webview.evaluate("copyBatches[0].count > 0"));
+  const copyAxe = await webview.evaluate(
+    'axe.run(document, {runOnly:{type:"tag",values:["wcag2a","wcag2aa","wcag21aa"]}}).then(r => r.violations.map(v=>v.id))',
+  );
+  assert.deepEqual(copyAxe, []);
+  await page.screenshot({ path: "test-results/vscode-copy-data.png" });
   await click("Schema & indexes");
   await wait(
     'state.detailTab === "schema" && !!document.querySelector(".schema-row")',

@@ -6,6 +6,10 @@ from threading import Lock
 from uuid import uuid4
 
 
+class OperationStopped(Exception):
+    """A cooperative stop preserves all previously applied writes."""
+
+
 class OperationStore:
     def __init__(self):
         self._items = deque()
@@ -61,7 +65,7 @@ class OperationStore:
                     saved.update(values)
                     return
 
-    def submit(self, action, table, function):
+    def submit(self, action, table, function, with_progress=False):
         item = self.record(action, table, "queued")
 
         def update(**values):
@@ -70,8 +74,10 @@ class OperationStore:
         def run():
             update(status="running")
             try:
-                detail = function()
+                detail = function(update) if with_progress else function()
                 update(status="completed", detail=detail or "Operation completed")
+            except OperationStopped as error:
+                update(status="cancelled", detail=str(error))
             except Exception as error:
                 update(status="failed", detail=str(error))
             finally:
