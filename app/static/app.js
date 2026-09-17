@@ -31,6 +31,7 @@ const paths = {
   play: "m8 4 12 8-12 8Z",
   storage: "M3 4h18v16H3zM7 8h10M7 12h7M7 16h3",
   alert: "m12 3 10 18H2Zm0 5v6m0 3v.1",
+  bookmark: "M6 3h12v18l-6-4-6 4Z",
   copy: "M9 9h12v12H9zM15 9V3H3v12h6",
 };
 const icon = (name, cls = "") =>
@@ -69,6 +70,7 @@ const state = {
   cursors: [null],
   nextCursor: null,
   search: { mode: "scan", index: null, limit: 25 },
+  savedQueryId: "",
   busy: false,
   importFile: null,
   importTable: null,
@@ -262,6 +264,7 @@ async function navigate() {
   state.table = name ? decodeURIComponent(name) : null;
   state.generation++;
   state.importFile = null;
+  state.savedQueryId = "";
   state.detailTab = "items";
   state.page = 1;
   state.cursors = [null];
@@ -390,10 +393,11 @@ function renderExplorer() {
       d.LocalSecondaryIndexes || [],
     );
   document.getElementById("detail-content").innerHTML =
-    `<section class="panel"><form id="query-form" class="query-bar"><div class="field"><label for="query-mode">Explore with</label><select id="query-mode"><option value="scan">Scan</option><option value="query">Query</option></select></div><div class="field"><label for="query-index">Table / index</label><select id="query-index"><option value="">Primary index</option>${indexes.map((i) => `<option value="${esc(i.IndexName)}">${esc(i.IndexName)}</option>`).join("")}</select></div><div class="field"><label for="query-limit">Page size</label><select id="query-limit"><option>25</option><option>50</option><option>100</option></select></div><div id="query-fields" class="query-fields hidden"></div><button class="button primary" type="submit">${icon("play")}Run ${state.search.mode}</button><p class="query-note" id="query-note">Scan reads a page of items. Use Query to look up a partition key efficiently.</p></form><div class="panel-toolbar"><label class="search">${icon("search")}<input id="item-filter" placeholder="Filter this page…" aria-label="Filter items on this page"></label><div class="button-group"><span id="item-result-label" class="hint"></span>${button("Refresh", "reload-items", "refresh", "small")}</div></div><div id="items-container"><div class="empty"><span class="spinner"></span></div></div><div class="panel-foot"><span id="page-label">Loading items…</span><div class="pagination"><button class="button" data-action="prev-page" disabled>${icon("left")}Previous</button><button class="button" data-action="next-page" disabled>Next${icon("arrow")}</button></div></div></section>`;
+    `<section class="panel"><div id="saved-query-bar" class="saved-query-bar"></div><form id="query-form" class="query-bar"><div class="field"><label for="query-mode">Explore with</label><select id="query-mode"><option value="scan">Scan</option><option value="query">Query</option></select></div><div class="field"><label for="query-index">Table / index</label><select id="query-index"><option value="">Primary index</option>${indexes.map((i) => `<option value="${esc(i.IndexName)}">${esc(i.IndexName)}</option>`).join("")}</select></div><div class="field"><label for="query-limit">Page size</label><select id="query-limit"><option>25</option><option>50</option><option>100</option></select></div><div id="query-fields" class="query-fields hidden"></div><button class="button primary" type="submit">${icon("play")}Run ${state.search.mode}</button><p class="query-note" id="query-note">Scan reads a page of items. Use Query to look up a partition key efficiently.</p></form><div class="panel-toolbar"><label class="search">${icon("search")}<input id="item-filter" placeholder="Filter this page…" aria-label="Filter items on this page"></label><div class="button-group"><span id="item-result-label" class="hint"></span>${button("Refresh", "reload-items", "refresh", "small")}</div></div><div id="items-container"><div class="empty"><span class="spinner"></span></div></div><div class="panel-foot"><span id="page-label">Loading items…</span><div class="pagination"><button class="button" data-action="prev-page" disabled>${icon("left")}Previous</button><button class="button" data-action="next-page" disabled>Next${icon("arrow")}</button></div></div></section>`;
   document.getElementById("query-mode").value = state.search.mode;
   document.getElementById("query-index").value = state.search.index || "";
   document.getElementById("query-limit").value = state.search.limit;
+  renderSavedQueries();
   renderQueryFields();
   document.getElementById("query-mode").onchange = renderQueryFields;
   document.getElementById("query-index").onchange = renderQueryFields;
@@ -430,8 +434,7 @@ function renderQueryFields() {
       ? "Enter a partition key. Numbers stay exact; binary keys use base64."
       : "Scan reads a page of items. Use Query to look up a partition key efficiently.";
 }
-async function runQuery(event) {
-  event.preventDefault();
+function readQueryForm() {
   const mode = document.getElementById("query-mode").value,
     index = document.getElementById("query-index").value || null;
   const request = {
@@ -450,8 +453,7 @@ async function runQuery(event) {
     const pk = keys.find((k) => k.KeyType === "HASH").AttributeName,
       value = document.getElementById("query-pk").value;
     if (!value) {
-      toast("Enter a partition key value.", true);
-      return;
+      throw new Error("Enter a partition key value.");
     }
     request.partition = { [types[pk]]: value };
     const sk = keys.find((k) => k.KeyType === "RANGE")?.AttributeName,
@@ -461,18 +463,226 @@ async function runQuery(event) {
     if (request.operator === "between") {
       const end = document.getElementById("query-end").value;
       if (!sv || !end) {
-        toast("Enter both values for the sort-key range.", true);
-        return;
+        throw new Error("Enter both values for the sort-key range.");
       }
       request.sortEnd = { [types[sk]]: end };
     }
     request.ascending = document.getElementById("query-order").value === "asc";
   }
-  state.search = request;
+  return request;
+}
+async function runQuery(event) {
+  event.preventDefault();
+  try {
+    state.search = readQueryForm();
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
   state.page = 1;
   state.cursors = [null];
   await loadItems();
 }
+// Saved definitions belong to this browser, connection, region, and table.
+function savedQueryKey() {
+  const connection = state.overview.connection;
+  return (
+    "dynamodb-tools.saved-queries.v1:" +
+    JSON.stringify([connection.endpoint, connection.region, state.table])
+  );
+}
+function readSavedQueries(key = savedQueryKey()) {
+  try {
+    const queries = JSON.parse(localStorage.getItem(key) || "[]");
+    if (
+      !Array.isArray(queries) ||
+      queries.some(
+        (q) =>
+          !q ||
+          typeof q.id !== "string" ||
+          typeof q.name !== "string" ||
+          typeof q.filter !== "string" ||
+          typeof q.schema !== "string" ||
+          !q.request ||
+          !["scan", "query"].includes(q.request.mode) ||
+          ![25, 50, 100].includes(q.request.limit) ||
+          !(q.request.index === null || typeof q.request.index === "string") ||
+          (q.request.mode === "query" &&
+            !validSavedAttribute(q.request.partition)) ||
+          (q.request.sort && !validSavedAttribute(q.request.sort)) ||
+          (q.request.sortEnd && !validSavedAttribute(q.request.sortEnd)),
+      )
+    )
+      throw new Error("Invalid saved data");
+    return queries;
+  } catch {
+    throw new Error(
+      "Saved queries are unavailable. Check this site's browser storage permissions or clear its saved data.",
+    );
+  }
+}
+function validSavedAttribute(value) {
+  return (
+    value &&
+    Object.keys(value).length === 1 &&
+    ["S", "N", "B"].includes(Object.keys(value)[0]) &&
+    typeof Object.values(value)[0] === "string"
+  );
+}
+function writeSavedQueries(key, queries) {
+  try {
+    localStorage.setItem(key, JSON.stringify(queries));
+  } catch {
+    throw new Error(
+      "Could not save changes. Browser storage may be full or disabled. Your previous saved queries are unchanged.",
+    );
+  }
+}
+function querySchema(index) {
+  const keys = index
+    ? (state.detail.GlobalSecondaryIndexes || [])
+        .concat(state.detail.LocalSecondaryIndexes || [])
+        .find((i) => i.IndexName === index)?.KeySchema
+    : state.detail.KeySchema;
+  if (!keys)
+    throw new Error(
+      "This saved query's index no longer exists. Choose another index and save a new query.",
+    );
+  return JSON.stringify(
+    keys
+      .map((key) => [
+        key.KeyType,
+        key.AttributeName,
+        state.detail.AttributeDefinitions.find(
+          (a) => a.AttributeName === key.AttributeName,
+        )?.AttributeType,
+      ])
+      .sort((a, b) => a[0].localeCompare(b[0])),
+  );
+}
+function renderSavedQueries() {
+  const bar = document.getElementById("saved-query-bar");
+  if (!bar) return;
+  try {
+    const queries = readSavedQueries().sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    if (!queries.some((q) => q.id === state.savedQueryId))
+      state.savedQueryId = "";
+    bar.innerHTML = `<div class="field saved-query-picker"><label for="saved-query">${icon("bookmark")}Saved queries <span class="count-badge">${queries.length}</span></label><select id="saved-query"><option value="">${queries.length ? "Choose a saved query…" : "No saved queries yet"}</option>${queries.map((q) => `<option value="${esc(q.id)}">${esc(q.name)}</option>`).join("")}</select></div><div class="button-group">${button("Load query", "load-query", "play", "small")}${button("Manage", "manage-query", "edit", "small")}${button("Save query", "save-query", "bookmark", "small")}</div><p class="saved-query-note">Saved in this browser for this connection and table.</p>`;
+    const select = document.getElementById("saved-query");
+    select.value = state.savedQueryId;
+    const updateButtons = () => {
+      state.savedQueryId = select.value;
+      bar
+        .querySelectorAll(
+          '[data-action="load-query"], [data-action="manage-query"]',
+        )
+        .forEach((b) => (b.disabled = !select.value));
+    };
+    select.onchange = updateButtons;
+    updateButtons();
+  } catch (error) {
+    bar.innerHTML = `<p class="saved-query-note" role="status">${esc(error.message)}</p>`;
+  }
+}
+function selectedSavedQuery() {
+  const query = readSavedQueries().find((q) => q.id === state.savedQueryId);
+  if (!query)
+    throw new Error(
+      "This saved query is no longer available. Choose another one.",
+    );
+  return query;
+}
+function saveQueryDialog(manage = false) {
+  const saved = manage ? selectedSavedQuery() : null;
+  // Validate current controls before offering to save a new definition.
+  const request = manage ? null : readQueryForm();
+  openDialog(
+    manage ? "Manage saved query" : "Save query",
+    "Keep a useful query close at hand. Saved only in this browser.",
+    `<div class="field"><label for="saved-query-name">Query name</label><input id="saved-query-name" required maxlength="80" autocomplete="off" placeholder="e.g. Recent pending orders" value="${esc(saved?.name || "")}"></div>${manage ? '<label class="saved-query-update"><input type="checkbox" id="saved-query-update">Replace saved settings with the current explorer settings</label>' : '<p class="editor-help">Includes the index, key conditions, sort order, page size, and page filter. Loading starts from the first page.</p>'}`,
+    `${manage ? button("Delete saved query", "delete-saved-query", "trash", "danger-outline") : ""}<button class="button primary" type="submit">${icon("bookmark")}${manage ? "Save changes" : "Save query"}</button>`,
+    {
+      kind: "save-query",
+      key: savedQueryKey(),
+      saved,
+      request,
+      filter: document.getElementById("item-filter").value,
+    },
+  );
+}
+async function loadSavedQuery() {
+  const saved = selectedSavedQuery();
+  if (saved.schema !== querySchema(saved.request.index))
+    throw new Error(
+      "The table or index keys have changed since this query was saved. Review the current keys and save a new query.",
+    );
+  state.search = structuredClone(saved.request);
+  state.page = 1;
+  state.cursors = [null];
+  renderExplorer();
+  document.getElementById("item-filter").value = saved.filter;
+  await loadItems();
+  document.getElementById("query-mode")?.focus();
+}
+function submitSavedQuery(context) {
+  const queries = readSavedQueries(context.key);
+  const position = queries.findIndex((q) => q.id === context.saved?.id);
+  if (context.saved && position < 0)
+    throw new Error(
+      "This query was deleted in another tab. Save a new query instead.",
+    );
+  if (context.kind === "delete-saved-query") {
+    queries.splice(position, 1);
+    writeSavedQueries(context.key, queries);
+    state.savedQueryId = "";
+  } else {
+    const name = document.getElementById("saved-query-name").value.trim();
+    if (!name) throw new Error("Enter a query name.");
+    if (
+      queries.some(
+        (q) =>
+          q.id !== context.saved?.id &&
+          q.name.toLowerCase() === name.toLowerCase(),
+      )
+    )
+      throw new Error(
+        "A query with this name already exists. Use a different name or manage the existing query.",
+      );
+    const replace =
+      !context.saved || document.getElementById("saved-query-update").checked;
+    const request = replace
+      ? context.request || readQueryForm()
+      : queries[position].request;
+    const saved = {
+      id: context.saved?.id || crypto.randomUUID(),
+      name,
+      request,
+      filter: replace ? context.filter : queries[position].filter,
+      schema: replace ? querySchema(request.index) : queries[position].schema,
+    };
+    if (position < 0) queries.push(saved);
+    else queries[position] = saved;
+    writeSavedQueries(context.key, queries);
+    state.savedQueryId = saved.id;
+  }
+  dialog.close();
+  renderSavedQueries();
+  toast(
+    context.kind === "delete-saved-query"
+      ? "Saved query deleted."
+      : "Query saved in this browser.",
+  );
+}
+window.addEventListener("storage", (event) => {
+  if (
+    state.table &&
+    state.overview &&
+    (event.key === savedQueryKey() || event.key === null)
+  )
+    renderSavedQueries();
+});
 let itemRequest = 0;
 async function loadItems() {
   const request = ++itemRequest,
@@ -798,6 +1008,10 @@ async function submitDialog(event) {
   submit.disabled = true;
   document.getElementById("dialog-error").textContent = "";
   try {
+    if (["save-query", "delete-saved-query"].includes(context.kind)) {
+      submitSavedQuery(context);
+      return;
+    }
     let operation;
     if (context.kind === "create-table" || context.kind === "create-advanced") {
       let definition;
@@ -979,7 +1193,19 @@ async function action(event) {
   if (!target || target.disabled) return;
   const name = target.dataset.action;
   try {
-    if (name === "refresh") await refreshOverview();
+    if (name === "save-query") saveQueryDialog();
+    else if (name === "manage-query") saveQueryDialog(true);
+    else if (name === "load-query") await loadSavedQuery();
+    else if (name === "delete-saved-query") {
+      const context = dialogContext;
+      openDialog(
+        "Delete saved query?",
+        `Remove “${context.saved.name}” from this browser?`,
+        '<p class="editor-help">Your table and its data will stay unchanged.</p>',
+        '<button class="button danger" type="submit">Delete saved query</button>',
+        { ...context, kind: "delete-saved-query" },
+      );
+    } else if (name === "refresh") await refreshOverview();
     else if (name === "create-table" || name === "create-guided")
       createTableDialog();
     else if (name === "create-advanced") createTableDialog(true);

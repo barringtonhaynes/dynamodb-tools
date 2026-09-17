@@ -185,6 +185,184 @@ try {
     fullPage: true,
   });
 
+  // Save the controls as edited, even before the query has been run.
+  await page.getByLabel("Order", { exact: true }).selectOption("desc");
+  await page.getByLabel("Page size").selectOption("50");
+  await page.getByLabel("Filter items on this page").fill("Grace");
+  await page.getByRole("button", { name: "Save query", exact: true }).click();
+  await page.getByLabel("Query name").fill("Orders <recent>");
+  await accessibility("save-query-dialog");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save query", exact: true })
+    .click();
+  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  const savedId = await page.locator("#saved-query").inputValue();
+  await page.reload();
+  await page.getByText("Page 1 · 25 items evaluated").waitFor();
+  await page.locator("#saved-query").selectOption(savedId);
+  await page.getByRole("button", { name: "Load query", exact: true }).click();
+  await page.getByText("Page 1 · 3 items evaluated").waitFor();
+  assert.equal(await page.locator("#query-pk").inputValue(), "orders");
+  assert.equal(await page.locator("#query-sk").inputValue(), "order#010");
+  assert.equal(await page.getByLabel("Range end").inputValue(), "order#012");
+  assert.equal(
+    await page.getByLabel("Order", { exact: true }).inputValue(),
+    "desc",
+  );
+  assert.equal(await page.getByLabel("Page size").inputValue(), "50");
+  assert.equal(
+    await page.getByLabel("Filter items on this page").inputValue(),
+    "Grace",
+  );
+  assert.equal(await page.locator(".data-table tbody tr").count(), 1);
+
+  // Rename preserves the saved definition; explicitly replacing captures edits.
+  await page.getByLabel("Page size").selectOption("100");
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
+  await page.getByLabel("Query name").fill("Recent orders");
+  await accessibility("manage-query-dialog");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Load query", exact: true }).click();
+  assert.equal(await page.getByLabel("Page size").inputValue(), "50");
+  await page.getByLabel("Page size").selectOption("100");
+  await page.getByLabel("Range end").fill("order#015");
+  await page.getByLabel("Filter items on this page").fill("");
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
+  await page.getByLabel("Replace saved settings").check();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Load query", exact: true }).click();
+  await page.getByText("Page 1 · 6 items evaluated").waitFor();
+  assert.equal(await page.getByLabel("Page size").inputValue(), "100");
+
+  await page.getByRole("button", { name: "Save query", exact: true }).click();
+  await page.getByLabel("Query name").fill("recent ORDERS");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save query", exact: true })
+    .click();
+  await page.getByText(/A query with this name already exists/).waitFor();
+  await page.keyboard.press("Escape");
+  const stored = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((key) =>
+      key.startsWith("dynamodb-tools.saved-queries.v1:"),
+    );
+    return { key, value: localStorage.getItem(key) };
+  });
+
+  // A removed index must not silently fall back to the primary index.
+  await page.evaluate(({ key, value }) => {
+    const queries = JSON.parse(value);
+    queries[0].request.index = "removed_index";
+    localStorage.setItem(key, JSON.stringify(queries));
+  }, stored);
+  await page.getByRole("button", { name: "Load query", exact: true }).click();
+  await page.getByText(/index no longer exists/).waitFor();
+  await page.evaluate(
+    ({ key, value }) => localStorage.setItem(key, value),
+    stored,
+  );
+
+  // Connection, region, and table scopes cannot expose another saved list.
+  for (const [field, value] of [
+    ["endpoint", "http://another-local:8000"],
+    ["region", "eu-west-1"],
+  ]) {
+    await page.route("**/api/overview", async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      data.connection[field] = value;
+      await route.fulfill({ response, json: data });
+    });
+    await page.reload();
+    await page.getByText("Page 1 · 25 items evaluated").waitFor();
+    assert.equal(await page.locator("#saved-query option").count(), 1);
+    await page.unroute("**/api/overview");
+  }
+  await page.reload();
+  await page.getByText("Page 1 · 25 items evaluated").waitFor();
+  await page.goto(`${base}/#tables/notable_people`);
+  await page.locator("#saved-query").waitFor();
+  assert.equal(await page.locator("#saved-query option").count(), 1);
+  await page.goto(`${base}/#tables/${name}`);
+  await page.locator("#saved-query").selectOption(savedId);
+  await page.getByRole("button", { name: "Load query", exact: true }).click();
+  await page.getByText("Page 1 · 6 items evaluated").waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noPageOverflow();
+  await accessibility("saved-queries-mobile");
+  await page.screenshot({
+    path: "test-results/saved-queries-mobile.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({
+    path: "test-results/saved-queries-desktop.png",
+    fullPage: true,
+  });
+
+  // Storage failure keeps the dialog open and does not claim success.
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
+  await page.getByLabel("Query name").fill("Cannot persist");
+  await page.evaluate(() => {
+    window.originalStorageSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException("Full", "QuotaExceededError");
+    };
+  });
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await page.getByText(/Could not save changes/).waitFor();
+  await page.evaluate(() => {
+    Storage.prototype.setItem = window.originalStorageSetItem;
+  });
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await page.evaluate((key) => localStorage.getItem(key), stored.key),
+    stored.value,
+  );
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Delete saved query", exact: true })
+    .click();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#saved-query option").count(), 2);
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Delete saved query", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete saved query", exact: true })
+    .click();
+  await page.reload();
+  await page.getByText("Page 1 · 25 items evaluated").waitFor();
+  assert.equal(await page.locator("#saved-query option").count(), 1);
+
+  // Corrupt storage must not break the ordinary explorer or erase data.
+  await page.evaluate(
+    (key) => localStorage.setItem(key, "broken JSON"),
+    stored.key,
+  );
+  await page.reload();
+  await page.getByText(/Saved queries are unavailable/).waitFor();
+  await page.getByText("Page 1 · 25 items evaluated").waitFor();
+  assert.equal(
+    await page.evaluate((key) => localStorage.getItem(key), stored.key),
+    "broken JSON",
+  );
+  await page.evaluate((key) => localStorage.removeItem(key), stored.key);
+  await page.reload();
+  await page.getByText("Page 1 · 25 items evaluated").waitFor();
+
   const downloaded = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
   const download = await downloaded;
@@ -266,7 +444,7 @@ try {
   assert.equal(await page.getByRole("dialog").count(), 0);
   assert.deepEqual(errors, [], "No uncaught browser errors");
   console.log(
-    "PASS: desktop/mobile, keyboard, accessibility, table/item CRUD, import preview, pagination, filtering, range queries, export, purge, and delete.",
+    "PASS: desktop/mobile, keyboard, accessibility, table/item CRUD, import preview, pagination, filtering, range queries, saved query persistence/management/isolation, export, purge, and delete.",
   );
 } finally {
   if (createdTable) {

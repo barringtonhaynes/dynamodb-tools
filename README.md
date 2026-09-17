@@ -31,6 +31,7 @@ CSS, JavaScript, and icons without external fonts, CDNs, or analytics.
 | Overview | Check connectivity, table counts, estimated item counts and storage, recent activity, and quick actions. |
 | Tables | Find tables by name. Create one with a guided key form or a full DynamoDB schema. |
 | Item explorer | Scan or query primary and secondary indexes, use sort-key comparisons or ranges, navigate pages, and filter the current page. |
+| Saved queries | Save named scans and queries, reload them from the first page, rename or update them, and delete saved definitions. |
 | Item editor | View, create, edit, duplicate, or delete items using typed DynamoDB JSON. Creating an item refuses to overwrite an existing key. |
 | Imports | Drag in CSV, plain JSON, or DynamoDB JSON; validate the entire file and preview records before importing. Load files from mounted folders too. |
 | Exports | Download a complete paginated table scan as DynamoDB JSON, preserving numbers, sets, nested values, and base64 binary data. |
@@ -41,6 +42,11 @@ CSS, JavaScript, and icons without external fonts, CDNs, or analytics.
 
 The layout adapts to small screens. Forms have accessible labels, dialogs support
 Escape, tabs support arrow keys, and `/` focuses the current table or page filter.
+Saved queries persist in browser storage, scoped to the console origin, DynamoDB
+endpoint, region, and table. They retain the index, exact key values, sort order,
+page size, and page filter. They are not shared between browsers; clearing site
+data removes them. Loading checks that the saved index and key schema still exist.
+
 Long-running table changes and imports use a bounded, sequential background queue.
 
 ## Use with your existing DynamoDB container
