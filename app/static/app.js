@@ -349,6 +349,7 @@ async function renderDetail(generation = state.generation) {
     ["import", "Import data", "upload"],
     ["streams", "Streams", "activity"],
     ["partiql", "PartiQL", "code"],
+    ["model", "Data model", "layers"],
     ["schema", "Schema & indexes", "layers"],
     ["manage", "Manage table", "settings"],
   ]
@@ -378,12 +379,14 @@ async function renderDetailTab() {
     await renderStreams();
   } else if (state.detailTab === "partiql") {
     renderPartiQL();
+  } else if (state.detailTab === "model") {
+    renderModel();
   } else if (state.detailTab === "schema") {
     const d = state.detail;
     const indexes = (d.GlobalSecondaryIndexes || []).concat(
       d.LocalSecondaryIndexes || [],
     );
-    content.innerHTML = `<div class="split"><section class="panel"><div class="panel-heading"><div><h2>Primary key</h2><p>The attributes that make each item unique.</p></div>${icon("key")}</div><div class="panel-body">${d.KeySchema.map((k) => `<div class="schema-row"><span>${k.KeyType === "HASH" ? "Partition key" : "Sort key"}</span><strong class="mono">${esc(k.AttributeName)} <span class="tag">${esc(d.AttributeDefinitions.find((a) => a.AttributeName === k.AttributeName)?.AttributeType)}</span></strong></div>`).join("")}<div class="schema-row"><span>Billing mode</span><span>${d.BillingModeSummary?.BillingMode === "PAY_PER_REQUEST" ? "On-demand" : "Provisioned"}</span></div><div class="schema-row"><span>Table status</span>${statusTag(d.TableStatus)}</div><div class="schema-row"><span>Created</span><span>${new Date(d.CreationDateTime).toLocaleDateString()}</span></div></div></section><section class="panel"><div class="panel-heading"><div><h2>Secondary indexes <span class="count-badge">${indexes.length}</span></h2><p>More ways to query your data.</p></div>${button("Edit", "update-schema", "edit", "small")}</div><div class="panel-body">${indexes.length ? indexes.map((i) => `<div class="schema-row"><div><strong>${esc(i.IndexName)}</strong><p class="info-note">${i.KeySchema.map((k) => esc(k.AttributeName)).join(" + ")} · ${esc(i.Projection.ProjectionType)}</p></div>${statusTag(i.IndexStatus || "ACTIVE")}</div>`).join("") : empty("No secondary indexes", "Add an index with a schema update to query another key.", "", true)}</div></section></div><section class="panel mt"><div class="panel-heading"><h2>Full table definition</h2>${button("Copy JSON", "copy-schema", "copy", "small")}</div><div class="panel-body"><pre class="code-block" tabindex="0">${esc(JSON.stringify(d, null, 2))}</pre></div></section>`;
+    content.innerHTML = `<div class="split"><section class="panel"><div class="panel-heading"><div><h2>Primary key</h2><p>The attributes that make each item unique.</p></div>${icon("key")}</div><div class="panel-body">${d.KeySchema.map((k) => `<div class="schema-row"><span>${k.KeyType === "HASH" ? "Partition key" : "Sort key"}</span><strong class="mono">${esc(k.AttributeName)} <span class="tag">${esc(d.AttributeDefinitions.find((a) => a.AttributeName === k.AttributeName)?.AttributeType)}</span></strong></div>`).join("")}<div class="schema-row"><span>Billing mode</span><span>${d.BillingModeSummary?.BillingMode === "PAY_PER_REQUEST" ? "On-demand" : "Provisioned"}</span></div><div class="schema-row"><span>Table status</span>${statusTag(d.TableStatus)}</div><div class="schema-row"><span>Created</span><span>${new Date(d.CreationDateTime).toLocaleDateString()}</span></div></div></section><section class="panel"><div class="panel-heading"><div><h2>Secondary indexes <span class="count-badge">${indexes.length}</span></h2><p>More ways to query your data.</p></div>${button("Edit", "update-schema", "edit", "small")}</div><div class="panel-body">${indexes.length ? indexes.map((i) => `<div class="schema-row"><div><strong>${esc(i.IndexName)}</strong><p class="info-note">${i.KeySchema.map((k) => esc(k.AttributeName)).join(" + ")} · ${esc(i.Projection.ProjectionType)}</p></div>${statusTag(i.IndexStatus || "ACTIVE")}</div>`).join("") : empty("No secondary indexes", "Add an index with a schema update to query another key.", "", true)}</div></section></div><section class="panel mt"><div class="panel-heading"><h2>Full table definition</h2>${button("Copy JSON", "copy-schema", "copy", "small")}</div><div class="panel-body"><pre class="code-block" tabindex="0">${highlightJSON(JSON.stringify(d, null, 2))}</pre></div></section>`;
   } else if (state.detailTab === "import") {
     state.importTable = state.table;
     content.innerHTML = importLayout(false);
@@ -718,7 +721,7 @@ async function loadItems() {
     state.nextCursor = result.cursor;
     state.result = result;
     document.getElementById("item-result-label").textContent =
-      `${fmt(result.count)} items · ${result.capacity} RCU`;
+      `${fmt(result.count)} items · ${bytes(result.returnedBytes)} returned (est.) · ${result.capacity} RCU`;
     renderItems();
     document.getElementById("page-label").textContent =
       `Page ${state.page} · ${fmt(result.scanned)} items evaluated`;
@@ -782,7 +785,7 @@ function renderItems() {
   const columns = [
     ...new Set([...keys, ...items.flatMap(({ item }) => Object.keys(item))]),
   ];
-  container.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table class="data-table" aria-label="Table items"><thead><tr><th><input type="checkbox" id="select-page" aria-label="Select all visible items"></th>${columns.map((c) => `<th>${keys.includes(c) ? '<span style="color:var(--purple);margin-right:5px">⌑</span>' : ""}${esc(c)}<span class="attr-type">${esc(Object.keys(items.find(({ item }) => item[c])?.item[c] || {})[0] || "")}</span></th>`).join("")}<th><span class="sr-only">Edit item</span></th></tr></thead><tbody>${items.map(({ item, i }) => `<tr><td><input type="checkbox" class="item-selection" data-row="${i}" aria-label="Select item ${esc(attrDisplay(item[keys[0]]))} ${esc(keys[1] ? attrDisplay(item[keys[1]]) : "")}"></td>${columns.map((c) => `<td title="${esc(attrDisplay(item[c]))}">${esc(attrDisplay(item[c]))}</td>`).join("")}<td class="row-actions"><button class="icon-button" data-action="edit-item" data-row="${i}" aria-label="Open item ${esc(attrDisplay(item[keys[0]]))}" title="View or edit item">${icon("edit")}</button></td></tr>`).join("")}</tbody></table></div>`;
+  container.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table class="data-table" aria-label="Table items"><thead><tr><th><input type="checkbox" id="select-page" aria-label="Select all visible items"></th>${columns.map((c) => `<th>${keys.includes(c) ? '<span style="color:var(--purple);margin-right:5px">⌑</span>' : ""}${esc(c)}<span class="attr-type">${esc(Object.keys(items.find(({ item }) => item[c])?.item[c] || {})[0] || "")}</span></th>`).join("")}<th title="Estimated size of returned attributes, not billed read size">Est. size</th><th><span class="sr-only">Edit item</span></th></tr></thead><tbody>${items.map(({ item, i }) => `<tr><td><input type="checkbox" class="item-selection" data-row="${i}" aria-label="Select item ${esc(attrDisplay(item[keys[0]]))} ${esc(keys[1] ? attrDisplay(item[keys[1]]) : "")}"></td>${columns.map((c) => `<td title="${esc(attrDisplay(item[c]))}">${esc(attrDisplay(item[c]))}</td>`).join("")}<td class="mono">${bytes(state.result?.itemBytes?.[i] || 0)}</td><td class="row-actions"><button class="icon-button" data-action="edit-item" data-row="${i}" aria-label="Open item ${esc(attrDisplay(item[keys[0]]))}" title="View or edit item">${icon("edit")}</button></td></tr>`).join("")}</tbody></table></div>`;
   bindSelection();
 }
 function importLayout(withSelect = true) {
@@ -934,6 +937,7 @@ function openDialog(title, description, body, actions, context = {}) {
     .querySelectorAll("#dialog-content button[data-action]")
     .forEach((b) => (b.type = "button"));
   document.getElementById("dialog-form").onsubmit = submitDialog;
+  enhanceJSON(document.getElementById("schema-editor"));
   if (!dialog.open) dialog.showModal();
   setTimeout(
     () => dialog.querySelector("input:not([type=hidden]),textarea")?.focus(),
@@ -966,10 +970,16 @@ function createTableDialog(advanced = false) {
 async function itemDialog(row = null) {
   const generation = state.generation;
   let item,
+    readCapacity,
     originalKey = null;
   if (row !== null) {
     const key = keyOf(state.items[row]);
-    item = await send(tablePath(state.table) + "/items/get", "POST", { key });
+    const read = await send(tablePath(state.table) + "/items/get", "POST", {
+      key,
+      includeMetrics: true,
+    });
+    item = read.item;
+    readCapacity = read.capacity;
     if (generation !== state.generation) return;
     originalKey = keyOf(item);
   } else {
@@ -991,16 +1001,25 @@ async function itemDialog(row = null) {
     row === null
       ? `A new record for ${state.table}.`
       : `Edit attributes in ${state.table}. Primary keys stay fixed.`,
-    `<div id="item-editor-views" class="item-editor-views" role="tablist" aria-label="Item editor views"></div><div class="item-editor-toolbar"><span id="item-editor-status" role="status"></span><div class="button-group"><button id="format-item" type="button" class="button small" data-action="format-item">${icon("code")}Format</button><button type="button" class="button small" data-action="validate-item">${icon("check")}Validate</button><button type="button" class="button small" data-action="copy-item">${icon("copy")}Copy JSON</button></div></div><div id="item-editor-panel" role="tabpanel"></div>${row !== null ? `<div class="button-group">${button("Delete item", "delete-item", "trash", "danger-outline small")}${button("Duplicate", "duplicate-item", "copy", "small")}</div>` : ""}`,
+    `<div id="item-editor-views" class="item-editor-views" role="tablist" aria-label="Item editor views"></div><div class="item-editor-toolbar"><span id="item-editor-status" role="status"></span><div class="button-group"><button id="format-item" type="button" class="button small" data-action="format-item">${icon("code")}Format</button><button type="button" class="button small" data-action="validate-item">${icon("check")}Validate</button><button type="button" class="button small" data-action="copy-item">${icon("copy")}Copy JSON</button></div></div><div id="item-editor-panel" role="tabpanel"></div><div id="item-insights" class="item-insights"><p class="info-note">Validate to check size and index membership.</p></div><details class="item-schema-contract"><summary>Optional item schema · JSON Schema</summary><p class="info-note">Draft 2020-12 rules apply to the standard JSON representation in every view. References and format assertions are unsupported. Use if/then for different entity types. This is a console check, not a DynamoDB constraint.</p><div class="field"><label for="item-schema">Item schema</label><textarea id="item-schema" rows="8" spellcheck="false" placeholder='{"type":"object","required":["entityType"],"properties":{"entityType":{"type":"string"}}}'>${esc(readItemContract())}</textarea></div>${button("Remember schema", "save-item-schema", "check", "small")}<p class="info-note">Saved only in this browser for this table and connection. Clear the field and remember to remove.</p></details>${row !== null ? `<div class="button-group">${button("Delete item", "delete-item", "trash", "danger-outline small")}${button("Duplicate", "duplicate-item", "copy", "small")}</div>` : ""}`,
     `<button class="button primary" type="submit">${icon("check")}${row === null ? "Create item" : "Save changes"}</button>`,
     {
       kind: "save-item",
       originalKey,
+      readCapacity,
       table: state.table,
       editor: { view: "ddb", item, ddb: JSON.stringify(item, null, 2) },
     },
   );
+  enhanceJSON(document.getElementById("item-schema"));
   renderItemEditor();
+  if (row !== null) {
+    try {
+      await syncItemEditor();
+    } catch (error) {
+      document.getElementById("dialog-error").textContent = error.message;
+    }
+  }
 }
 const itemTypes = {
   S: "String",
@@ -1048,6 +1067,7 @@ function renderItemEditor() {
     textarea.onscroll = () =>
       (document.getElementById("editor-lines").scrollTop = textarea.scrollTop);
     updateLines();
+    enhanceJSON(textarea);
   }
   document
     .getElementById("format-item")
@@ -1153,6 +1173,8 @@ async function syncItemEditor() {
       text,
       view: context.editor.view === "json" ? "json" : "ddb",
       previous: context.editor.item,
+      table: context.table,
+      itemSchema: document.getElementById("item-schema")?.value || "",
     });
     if (dialogContext !== context || !dialog.open)
       throw new Error("The item editor was closed.");
@@ -1168,6 +1190,7 @@ async function syncItemEditor() {
         "Primary keys cannot be changed. Use Duplicate to create an item with new keys.",
       );
     Object.assign(context.editor, result);
+    editorInsights(result);
     document.getElementById("dialog-error").textContent = "";
     return result.item;
   } finally {
@@ -1178,10 +1201,12 @@ async function syncItemEditor() {
 async function itemEditorAction(name, target) {
   try {
     if (name === "remove-attribute") {
+      markEditorInsightsStale();
       target.closest(".attribute-row").remove();
       return;
     }
     if (name === "add-attribute") {
+      markEditorInsightsStale();
       appendAttributeRow().querySelector("input").focus();
       return;
     }
@@ -1191,10 +1216,12 @@ async function itemEditorAction(name, target) {
       renderItemEditor();
       document.getElementById("editor-tab-" + target.dataset.view).focus();
     } else if (name === "format-item") renderItemEditor();
-    else if (name === "validate-item")
+    else if (name === "validate-item") {
+      if (dialogContext.editor.checks.errors.length)
+        throw new Error(dialogContext.editor.checks.errors.join("\n"));
       document.getElementById("item-editor-status").textContent =
         "Valid DynamoDB item · Nothing saved yet.";
-    else if (name === "copy-item")
+    } else if (name === "copy-item")
       await copyText(
         dialogContext.editor.view === "json"
           ? dialogContext.editor.json
@@ -1288,13 +1315,18 @@ async function submitDialog(event) {
       );
     } else if (context.kind === "save-item") {
       const item = await syncItemEditor();
-      await send(tablePath(context.table) + "/items", "PUT", {
+      if (context.editor.checks.errors.length)
+        throw new Error(context.editor.checks.errors.join("\n"));
+      const receipt = await send(tablePath(context.table) + "/items", "PUT", {
         item,
         originalKey: context.originalKey,
         createOnly: true,
+        itemSchema: document.getElementById("item-schema").value,
       });
       dialog.close();
-      toast(context.originalKey ? "Item updated." : "Item created.");
+      toast(
+        `${context.originalKey ? "Item updated." : "Item created."} ${fmt(receipt.metrics.estimatedBytes)} bytes (est.) · ${receipt.capacity} write capacity units.`,
+      );
       if (state.table === context.table && state.detailTab === "items")
         await loadItems();
       await refreshOperations();
@@ -1420,6 +1452,7 @@ async function action(event) {
   if (!target || target.disabled) return;
   const name = target.dataset.action;
   try {
+    if (await insightsAction(name, target)) return;
     if (await workspaceAction(name, target)) return;
     if (
       [
@@ -1537,6 +1570,7 @@ async function action(event) {
 }
 dialog.addEventListener("input", () => {
   if (dialogContext?.kind === "save-item") {
+    markEditorInsightsStale();
     document.getElementById("item-editor-status").textContent =
       "Draft edited · Validate or save to check your changes.";
   }

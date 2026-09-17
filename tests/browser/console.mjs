@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 import { checkItemEditor } from "./item-editor.mjs";
+import { checkInsights } from "./insights.mjs";
 import { checkWorkspace } from "./workspace.mjs";
 import { assertIconBounds } from "./icon-layout.mjs";
 
@@ -376,6 +377,15 @@ try {
   await page.getByText("Page 1 · 25 items evaluated").waitFor();
 
   await checkWorkspace({
+    page,
+    table: name,
+    operation,
+    jsonResponse,
+    accessibility,
+    noPageOverflow,
+  });
+
+  await checkInsights({
     page,
     table: name,
     operation,

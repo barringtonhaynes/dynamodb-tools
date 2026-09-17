@@ -35,7 +35,8 @@ CSS, JavaScript, and icons without external fonts, CDNs, or analytics.
 | Streams | Enable/disable change capture, choose image contents, discover streams and shards, read from the oldest record, from now, or a sequence number; inspect before/after images and export a read. |
 | PartiQL | Run parameterized SELECT, INSERT, UPDATE, or DELETE statements. Writes require confirmation; reads support continuation and result export. |
 | Saved queries | Save named scans and queries, reload them from the first page, rename or update them, and delete saved definitions. |
-| Item editor | Switch between DynamoDB JSON, standard JSON, and an editable attribute table. Format and validate JSON, inspect type help, and create, edit, duplicate, or delete items. Creating an item refuses to overwrite an existing key. |
+| Data model | Inspect bounded samples for entity types, key prefixes, attribute presence, partition collections, and sparse-index eligibility. Open partition, prefix, and index queries directly. |
+| Item editor | Switch between DynamoDB JSON, standard JSON, and an editable attribute table. Syntax-highlight and validate JSON, check table/index keys and an optional entity schema, inspect estimated sizes and type help, and create, edit, duplicate, or delete items. Creating an item refuses to overwrite an existing key. |
 | Imports | Drag in CSV, plain JSON, or DynamoDB JSON; validate the entire file and preview records before importing. Load files from mounted folders too. |
 | Exports | Download a complete paginated table scan as DynamoDB JSON, preserving numbers, sets, nested values, and base64 binary data. |
 | Schema | Inspect keys, indexes, capacity, and the complete table definition. Apply `UpdateTable` JSON to change capacity or manage global indexes. |
@@ -74,6 +75,68 @@ attributes always include the table's primary keys so item editing can fetch the
 complete record. Global secondary indexes reject strongly consistent reads.
 Saved queries include these options. Export page exports only the visible records
 and returned attributes; Export in the table header still exports the whole table.
+
+### Single-table models, sparse indexes, and item sizes
+
+**Data model** reads a sample only when requested: at most 100 items or 1 MiB per
+read. Next sample replaces the displayed page. Entity groups use your chosen
+string attribute (default `entityType`), falling back to the first sort-key prefix;
+these are observations, not a declared schema. Presence counts and mixed types
+help spot inconsistent entities. Partition collections and index examples open
+queries in Items, where you can refine and save them. The key workbench supports
+full partition values and string sort-key prefixes such as `CUSTOMER#123` and
+`ORDER#2026-09`.
+
+Sparse-index coverage checks whether each sampled item supplies every index key
+with the correct type and permitted length. Missing keys exclude an item;
+malformed keys are reported separately. Eligibility does not prove that an index
+has finished backfilling or propagating. Samples cannot establish whole-table
+coverage or identify hot partitions. See AWS's
+[sparse-index guidance](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-indexes-general-sparse-indexes.html)
+and [sort-key patterns](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-sort-keys.html).
+
+Read pages display estimated returned bytes and per-item sizes; projections measure
+only returned attributes. Opening an item fetches the full record and reports read
+capacity. Editor validation shows item bytes, compact DynamoDB JSON bytes, size by
+attribute, index membership, and a warning above the 400 KiB base-item limit. Saves
+report the estimated item size and actual capacity returned by DynamoDB; the write
+receipt is also kept in Activity. PartiQL reads include returned-byte estimates.
+
+Size estimates follow [AWS's item-size rules](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/CapacityUnitCalculations.html):
+UTF-8 names/text, decoded binary, and collection overhead. Number sizes are
+approximate. Estimates exclude storage billing overhead and index storage, and do
+not represent billable read/write size. DynamoDB performs final size checks,
+including the extra constraints for local secondary indexes. Capacity is reported
+by the connected service; DynamoDB Local does not model production billing.
+
+### Optional item schema
+
+Both JSON editors highlight tokens without parsing numbers in the browser.
+Validation checks typed DynamoDB values, nesting depth, primary keys, and present
+index keys. The optional **Item schema** field accepts inline JSON Schema Draft
+2020-12 rules for the standard JSON representation, regardless of the active view.
+For example:
+
+```json
+{
+  "type": "object",
+  "required": ["entityType"],
+  "properties": {"entityType": {"enum": ["Customer", "Order"]}},
+  "if": {"properties": {"entityType": {"const": "Order"}}},
+  "then": {
+    "required": ["total"],
+    "properties": {"total": {"type": "number", "minimum": 0}}
+  }
+}
+```
+
+Use Remember schema to persist rules in this browser, scoped like saved queries.
+Clear and remember the field to remove them. Schema violations block console item
+saves and identify the offending path. Rules are not enforced by DynamoDB, imports,
+PartiQL, or other clients. References (`$ref` / `$dynamicRef`) are unsupported and
+never fetched; format annotations are not assertions. Standard JSON represents
+sets as arrays and binary values as base64 strings. Decimal parsing preserves
+numeric precision in both the document and schema bounds.
 
 ### Streams, TTL, and PartiQL
 

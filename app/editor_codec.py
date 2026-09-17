@@ -1,10 +1,12 @@
 """Lossless conversions between the item editor's JSON representations."""
+import base64
 import json
 from decimal import Decimal
 
 from boto3.dynamodb.types import TypeSerializer
 
 from .data_codec import attribute_from_wire
+from .item_insights import ITEM_LIMIT, item_metrics
 
 
 def unique_object(pairs):
@@ -77,19 +79,29 @@ def plain_attribute(value, previous, path):
         ) from error
 
 
-def validate_attribute(attribute, path):
+def validate_attribute(attribute, path, depth=0):
+    if depth > 32:
+        raise ValueError(f"{path}: DynamoDB supports at most 32 nested levels")
     if isinstance(attribute, dict) and len(attribute) == 1:
         kind, value = next(iter(attribute.items()))
+        if kind in {"M", "L"} and depth >= 32:
+            raise ValueError(f"{path}: DynamoDB supports at most 32 nested levels")
         if kind == "M" and isinstance(value, dict):
             for key, child in value.items():
-                validate_attribute(child, f"{path}.{key}")
+                validate_attribute(child, f"{path}.{key}", depth + 1)
         elif kind == "L" and isinstance(value, list):
             for i, child in enumerate(value):
-                validate_attribute(child, f"{path}[{i}]")
+                validate_attribute(child, f"{path}[{i}]", depth + 1)
         elif kind in {"SS", "NS", "BS"} and isinstance(value, list):
             # DynamoDB rejects duplicate set members. Compare numeric values exactly.
             try:
-                members = [Decimal(v) for v in value] if kind == "NS" else value
+                members = (
+                    [Decimal(v) for v in value]
+                    if kind == "NS"
+                    else [base64.b64decode(v, validate=True) for v in value]
+                    if kind == "BS"
+                    else value
+                )
                 if len(set(members)) != len(members):
                     raise ValueError(f"{path}: sets cannot contain duplicate values")
             except (TypeError, ArithmeticError) as error:
@@ -164,7 +176,14 @@ def convert_item(text, view, previous=None):
             if not key:
                 raise ValueError("Attribute names cannot be empty")
             validate_attribute(attribute, key)
+        metrics = item_metrics(item)
         return {
+            "metrics": metrics,
+            "warnings": [
+                "Estimated size exceeds the 400 KiB item limit. DynamoDB makes the final size check."
+            ]
+            if metrics["estimatedBytes"] > ITEM_LIMIT
+            else [],
             "item": item,
             "ddb": json.dumps(item, indent=2),
             "json": plain_json(item),

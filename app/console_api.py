@@ -1,3 +1,4 @@
+import json
 from typing import Literal
 
 from boto3.dynamodb.types import TypeDeserializer
@@ -12,6 +13,8 @@ from .console_service import ConsoleService
 from .data_codec import item_from_wire, parse_import, to_wire
 from .data_service import DataService
 from .editor_codec import convert_item
+from .item_insights import check_contract, item_metrics, table_checks
+from .model_insights import inspect_model
 from .operations import operations
 from .startup_tasks import get_startup_tasks_status
 from .table_service import TableService
@@ -116,10 +119,12 @@ class ItemRequest(BaseModel):
     item: dict
     originalKey: dict | None = None
     createOnly: bool = True
+    itemSchema: str = Field(default="", max_length=65536)
 
 
 class KeyRequest(BaseModel):
     key: dict
+    includeMetrics: bool = False
 
 
 class ImportRequest(BaseModel):
@@ -131,11 +136,22 @@ class EditorRequest(BaseModel):
     text: str = Field(max_length=2 * 1024 * 1024)
     view: Literal["ddb", "json"] = "ddb"
     previous: dict | None = None
+    table: str | None = None
+    itemSchema: str = Field(default="", max_length=65536)
 
 
 @router.post("/items/convert")
 def convert_editor_item(request: EditorRequest):
-    return convert_item(request.text, request.view, request.previous)
+    result = convert_item(request.text, request.view, request.previous)
+    checks = (
+        table_checks(result["item"], ConsoleService().describe(request.table))
+        if request.table
+        else {"errors": [], "indexes": []}
+    )
+    if request.itemSchema.strip():
+        checks["errors"].extend(check_contract(result["item"], request.itemSchema))
+    result["checks"] = checks
+    return result
 
 
 class MountedRequest(BaseModel):
@@ -274,19 +290,38 @@ def get_item(name: str, request: KeyRequest):
     service = ConsoleService()
     key = item_from_wire(request.key)
     service.validate_keys(name, [key], exact=True)
-    result = service.client.get_item(TableName=name, Key=key, ConsistentRead=True)
+    result = service.client.get_item(
+        TableName=name, Key=key, ConsistentRead=True, ReturnConsumedCapacity="TOTAL"
+    )
     if "Item" not in result:
         raise HTTPException(404, "This item no longer exists")
-    return to_wire(result["Item"])
+    item = to_wire(result["Item"])
+    if request.includeMetrics:
+        return {
+            "item": item,
+            "metrics": item_metrics(item),
+            "capacity": result.get("ConsumedCapacity", {}).get("CapacityUnits", 0),
+        }
+    return item
 
 
 @router.put("/tables/{name}/items")
 def put_item(name: str, request: ItemRequest):
-    ConsoleService().put_item(
+    if request.itemSchema.strip():
+        errors = check_contract(
+            convert_item(json.dumps(request.item), "ddb")["item"], request.itemSchema
+        )
+        if errors:
+            raise ValueError("\n".join(errors))
+    receipt = ConsoleService().put_item(
         name, request.item, request.originalKey, request.createOnly
     )
-    operations.record("Edit item" if request.originalKey else "Create item", name)
-    return {"status": "success"}
+    operations.record(
+        "Edit item" if request.originalKey else "Create item",
+        name,
+        detail=f'{receipt["metrics"]["estimatedBytes"]:,} estimated item bytes · {receipt["capacity"]} write capacity units',
+    )
+    return {"status": "success", **receipt}
 
 
 @router.delete("/tables/{name}/items")
@@ -367,3 +402,28 @@ def export_table(name: str):
             "Content-Disposition": f'attachment; filename="{safe_name}.dynamodb.json"'
         },
     )
+
+
+class ModelRequest(BaseModel):
+    entityAttribute: str = Field(default="entityType", min_length=1, max_length=255)
+    delimiter: str = Field(default="#", min_length=1, max_length=8)
+    limit: int = Field(default=100, ge=1, le=100)
+    cursor: str | None = Field(default=None, max_length=16384)
+
+
+@router.post("/tables/{name}/model")
+def model_sample(name: str, request: ModelRequest):
+    service = ConsoleService()
+    page = service.search(
+        name, SearchRequest(limit=request.limit, cursor=request.cursor)
+    )
+    return {
+        **inspect_model(
+            page["items"],
+            service.describe(name),
+            request.entityAttribute,
+            request.delimiter,
+        ),
+        "cursor": page["cursor"],
+        "capacity": page["capacity"],
+    }

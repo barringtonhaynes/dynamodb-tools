@@ -14,6 +14,7 @@ from .config import settings
 from .console_api import ConsoleRoute
 from .console_service import ConsoleService
 from .data_codec import attribute_from_wire, item_from_wire, to_wire
+from .item_insights import read_metrics
 from .operations import operations
 
 router = APIRouter(prefix="/api", route_class=ConsoleRoute)
@@ -249,6 +250,7 @@ def execute_partiql(request: PartiQLRequest):
     if write:
         operations.record("PartiQL write", None, detail="Statement completed")
     return {
+        **read_metrics(to_wire(result.get("Items", []))),
         "items": to_wire(result.get("Items", [])),
         "cursor": pack_cursor(result.get("NextToken"), scope),
         "lastEvaluatedKey": to_wire(result.get("LastEvaluatedKey")),

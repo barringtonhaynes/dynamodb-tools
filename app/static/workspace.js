@@ -396,9 +396,9 @@ async function runPartiQL(request) {
     document.getElementById("partiql-next").disabled = !result.cursor;
     document.getElementById("partiql-export").disabled = !result.items.length;
     document.getElementById("partiql-status").textContent =
-      `${result.write ? "Write completed" : `${result.items.length} items returned`} · ${result.capacity} capacity units${result.lastEvaluatedKey && !result.cursor ? " · DynamoDB returned a partial result without a continuation token. Narrow your WHERE clause to continue." : ""}`;
+      `${result.write ? "Write completed" : `${result.items.length} items returned · ${bytes(result.returnedBytes)} (est.)`} · ${result.capacity} capacity units${result.lastEvaluatedKey && !result.cursor ? " · DynamoDB returned a partial result without a continuation token. Narrow your WHERE clause to continue." : ""}`;
     document.getElementById("partiql-results").innerHTML =
-      `<pre class="code-block" tabindex="0">${esc(JSON.stringify(result.items, null, 2))}</pre>`;
+      `<pre class="code-block" tabindex="0">${highlightJSON(JSON.stringify(result.items, null, 2))}</pre>`;
   } finally {
     current.busy = false;
     button.disabled = false;

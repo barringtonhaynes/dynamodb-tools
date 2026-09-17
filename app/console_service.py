@@ -9,6 +9,8 @@ from botocore.config import Config
 
 from .config import settings
 from .data_codec import attribute_from_wire, item_from_wire, to_wire
+from .editor_codec import convert_item
+from .item_insights import item_metrics, read_metrics, table_checks
 from .query_filters import apply_read_options
 
 
@@ -115,6 +117,7 @@ class ConsoleService:
             apply_read_options(arguments, request, table)
             result = self.client.scan(**arguments)
         return {
+            **read_metrics(to_wire(result.get("Items", []))),
             "items": to_wire(result.get("Items", [])),
             "count": result.get("Count", 0),
             "scanned": result.get("ScannedCount", 0),
@@ -142,9 +145,14 @@ class ConsoleService:
         return keys
 
     def put_item(self, name, item, original=None, create_only=False):
+        item = convert_item(json.dumps(item), "ddb")["item"]
+        checks = table_checks(item, self.describe(name))
+        if checks["errors"]:
+            raise ValueError("\n".join(checks["errors"]))
+        metrics = item_metrics(item)
         item = item_from_wire(item)
         keys = self.validate_keys(name, [item])
-        arguments = {"TableName": name, "Item": item}
+        arguments = {"TableName": name, "Item": item, "ReturnConsumedCapacity": "TOTAL"}
         if original is not None:
             original = item_from_wire(original)
             self.validate_keys(name, [original], exact=True)
@@ -157,7 +165,11 @@ class ConsoleService:
         elif create_only:
             arguments["ConditionExpression"] = "attribute_not_exists(#pk)"
             arguments["ExpressionAttributeNames"] = {"#pk": keys[0]}
-        self.client.put_item(**arguments)
+        result = self.client.put_item(**arguments)
+        return {
+            "metrics": metrics,
+            "capacity": result.get("ConsumedCapacity", {}).get("CapacityUnits", 0),
+        }
 
     def delete_item(self, name, key):
         key = item_from_wire(key)
