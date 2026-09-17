@@ -11,6 +11,7 @@
     <title>DynamoDB Tools · Your local data workspace</title>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/static/app.css" />
+    <script src="/static/connection.js" defer></script>
     <script src="/static/insights.js" defer></script>
     <script src="/static/workspace.js" defer></script>
     <script src="/static/app.js" defer></script>
@@ -25,7 +26,8 @@
       <div class="workspace-card">
         <span class="workspace-symbol" data-icon="database"></span>
         <div>
-          <strong>Local workspace</strong><span>Development environment</span>
+          <strong id="workspace-name">Local workspace</strong
+          ><span id="workspace-description">Development environment</span>
         </div>
         <span class="live-dot"></span>
       </div>
@@ -89,6 +91,7 @@
           ><span class="avatar" aria-label="Local workspace">L</span>
         </div>
       </header>
+      <div id="cloud-notice" class="cloud-notice" role="status" hidden></div>
       <main id="main" tabindex="-1">
         <div class="loading-page">
           <span class="spinner"></span>

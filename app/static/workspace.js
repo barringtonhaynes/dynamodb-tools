@@ -133,7 +133,8 @@ function bindSelection() {
     const count = boxes.filter((el) => el.checked).length;
     document.getElementById("selection-count").textContent =
       `${count} selected on this page`;
-    document.getElementById("delete-selected").disabled = !count;
+    document.getElementById("delete-selected").disabled =
+      !count || state.overview.connection.readOnly;
     all.checked = count === boxes.length;
     all.indeterminate = count > 0 && count < boxes.length;
   };

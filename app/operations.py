@@ -14,6 +14,10 @@ class OperationStore:
             max_workers=1, thread_name_prefix="dynamodb-tools"
         )
 
+    def clear(self):
+        with self._lock:
+            self._items.clear()
+
     def list(self):
         with self._lock:
             return [dict(item) for item in reversed(self._items)]

@@ -23,7 +23,7 @@ def health() -> JSONResponse:
         content={
             "startupTasksStatus": get_startup_tasks_status(),
             "stats": table_stats.model_dump(),
-            "settings": settings.model_dump(),
+            "settings": settings.effective_settings(),
         }
     )
 
@@ -55,6 +55,8 @@ def load_data_file(
     try:
         data_file_path = data_service.get_data_file_path(table_name, data_file)
         TableService().seed_table(table_name, str(data_file_path))
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail="Data file not found") from error
     except (ValueError, TypeError, KeyError, ParamValidationError) as error:

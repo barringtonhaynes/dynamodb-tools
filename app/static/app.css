@@ -2489,3 +2489,58 @@ meter {
 #model-results .data-table td:last-child {
   min-width: 260px;
 }
+.cloud-notice {
+  display: flex;
+  gap: 12px;
+  padding: 14px 40px;
+  background: #f0ebff;
+  border-bottom: 1px solid #dacef1;
+  color: #493579;
+  font-size: 12px;
+}
+.cloud-notice[hidden] {
+  display: none;
+}
+.cloud-notice svg {
+  margin-top: 2px;
+}
+.cloud-notice p {
+  margin: 4px 0 0;
+}
+.settings-grid .schema-row code {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.table-heading h1 > .tag {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .cloud-notice {
+    padding: 12px 18px;
+  }
+}
+
+.connection-editor {
+  margin-bottom: 24px;
+}
+.connection-editor input,
+.connection-editor select {
+  width: 100%;
+}
+.connection-editor code {
+  overflow-wrap: anywhere;
+}
+.connection-editor .field-pair {
+  align-items: start;
+}
+.connection-editor .field-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+@media (max-width: 600px) {
+  .connection-editor .field-pair {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}

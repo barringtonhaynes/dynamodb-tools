@@ -36,6 +36,14 @@ def set_startup_tasks_status(status: StartupTaskStatus) -> None:
 
 
 def _run_startup_tasks() -> None:
+    if (
+        settings.dynamodb_mode == "aws"
+        or settings.is_read_only
+        or settings.connection_saved
+    ):
+        logger.info("Startup mutations disabled for AWS/read-only connections")
+        set_startup_tasks_status(StartupTaskStatus.FINISHED)
+        return
     table_service = TableService()
     logger.info("Starting startup tasks")
     set_startup_tasks_status(StartupTaskStatus.STARTED)

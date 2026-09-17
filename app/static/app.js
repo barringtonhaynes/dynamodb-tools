@@ -83,7 +83,13 @@ let refreshPromise = null;
 async function api(url, options = {}) {
   const response = await fetch(url, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(state.overview?.connection?.id
+        ? { "X-Connection-Id": state.overview.connection.id }
+        : {}),
+      ...options.headers,
+    },
   });
   if (!response.ok) {
     let data;
@@ -193,7 +199,7 @@ function renderOverview() {
       `<a href="#imports" class="button">${icon("upload")}Import data</a>${button("Create table", "create-table", "plus", "primary")}`,
     ) +
     activeBanner() +
-    `<div class="overview-grid"><div><div class="welcome"><div><div class="eyebrow" style="color:#705d85">ROOM TO BUILD</div><h2>Your next idea starts with good data.</h2><p>Explore your tables, try a query, or bring in something new. All in one local workspace.</p></div><span class="welcome-icon">${icon("layers")}</span></div><div class="metrics">${metric("Total tables", fmt(tables.length), "Ready to explore", "table", true)}${metric("Stored items", fmt(items), "Estimated by DynamoDB", "layers")}${metric("Storage used", bytes(size), "Across all tables", "storage")}</div>${tablePanel(tables)}<div class="note-card">${icon("info")}<div><h3>A workspace for experimenting.</h3><p>Browse and edit your data with confidence. Table deletion and purging always require confirmation; imports show a preview before you begin.</p></div></div></div><aside class="overview-aside"><section class="panel side-panel"><h2>${icon("database")}Connection</h2><p class="description">Your workspace is connected and ready to go.</p><span class="tag green">Connected</span><dl class="connection-details"><div><dt>Endpoint</dt><dd title="${esc(data.connection.endpoint)}">${esc(data.connection.endpoint.replace(/^https?:\/\//, ""))}</dd></div><div><dt>Region</dt><dd>${esc(data.connection.region)}</dd></div><div><dt>Startup</dt><dd>${esc(data.startup)}</dd></div></dl></section><section class="panel side-panel"><h2>Quick actions</h2><button class="quick-action" data-action="create-table"><span class="quick-icon">${icon("plus")}</span><span><strong>Create a table</strong><small>A home for something new</small></span>${icon("chevron")}</button><a href="#imports" class="quick-action"><span class="quick-icon">${icon("upload")}</span><span><strong>Bring your data</strong><small>Import CSV or JSON</small></span>${icon("chevron")}</a><a href="/docs" target="_blank" rel="noopener" class="quick-action"><span class="quick-icon">${icon("code")}</span><span><strong>Explore the API</strong><small>Make it part of your workflow</small></span>${icon("chevron")}</a></section><section class="panel side-panel"><h2>Recent activity<a href="#activity" class="button text" style="margin-left:auto;min-height:0;font-size:9px">View all</a></h2>${state.operations.length ? activityRows(state.operations.slice(0, 3)) : empty("All quiet for now", "Your imports and changes will appear here.", "", true)}</section></aside></div>`;
+    `<div class="overview-grid"><div><div class="welcome"><div><div class="eyebrow" style="color:#705d85">ROOM TO BUILD</div><h2>Your next idea starts with good data.</h2><p>Explore your tables, try a query, or bring in something new. All in one workspace.</p></div><span class="welcome-icon">${icon("layers")}</span></div><div class="metrics">${metric("Total tables", fmt(tables.length), "Ready to explore", "table", true)}${metric("Stored items", fmt(items), "Estimated by DynamoDB", "layers")}${metric("Storage used", bytes(size), "Across all tables", "storage")}</div>${tablePanel(tables)}<div class="note-card">${icon("info")}<div><h3>A workspace for experimenting.</h3><p>Browse and edit your data with confidence. Table deletion and purging always require confirmation; imports show a preview before you begin.</p></div></div></div><aside class="overview-aside"><section class="panel side-panel"><h2>${icon("database")}Connection</h2><p class="description">Your workspace is connected and ready to go.</p><span class="tag green">Connected</span><dl class="connection-details"><div><dt>Endpoint</dt><dd title="${esc(data.connection.endpoint)}">${esc(data.connection.endpoint.replace(/^https?:\/\//, ""))}</dd></div><div><dt>Region</dt><dd>${esc(data.connection.region)}</dd></div><div><dt>Startup</dt><dd>${esc(data.startup)}</dd></div></dl></section><section class="panel side-panel"><h2>Quick actions</h2><button class="quick-action" data-action="create-table"><span class="quick-icon">${icon("plus")}</span><span><strong>Create a table</strong><small>A home for something new</small></span>${icon("chevron")}</button><a href="#imports" class="quick-action"><span class="quick-icon">${icon("upload")}</span><span><strong>Bring your data</strong><small>Import CSV or JSON</small></span>${icon("chevron")}</a><a href="/docs" target="_blank" rel="noopener" class="quick-action"><span class="quick-icon">${icon("code")}</span><span><strong>Explore the API</strong><small>Make it part of your workflow</small></span>${icon("chevron")}</a></section><section class="panel side-panel"><h2>Recent activity<a href="#activity" class="button text" style="margin-left:auto;min-height:0;font-size:9px">View all</a></h2>${state.operations.length ? activityRows(state.operations.slice(0, 3)) : empty("All quiet for now", "Your imports and changes will appear here.", "", true)}</section></aside></div>`;
   document
     .getElementById("table-filter")
     ?.addEventListener("input", filterTables);
@@ -225,8 +231,17 @@ async function refreshOverview(render = true) {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     try {
-      state.overview = await api("/api/overview");
+      const nextOverview = await api("/api/overview");
+      if (
+        state.overview?.connection?.id &&
+        state.overview.connection.id !== nextOverview.connection.id
+      ) {
+        location.reload();
+        return;
+      }
+      state.overview = nextOverview;
       state.operations = state.overview.operations;
+      connectionPresentation();
       document.getElementById("nav-table-count").textContent =
         state.overview.tables.length;
       document.getElementById("connection-status").textContent = "Connected";
@@ -287,7 +302,15 @@ async function navigate() {
   document.title =
     (state.table || document.getElementById("breadcrumb").textContent) +
     " · DynamoDB Tools";
-  if (state.overview) await renderRoute();
+  if (!state.overview && state.route === "settings") {
+    try {
+      state.overview = await api("/api/overview");
+      connectionPresentation();
+    } catch {
+      /* Settings must remain reachable when sign-in fails. */
+    }
+  }
+  if (state.overview || state.route === "settings") await renderRoute();
   else await refreshOverview();
 }
 async function renderRoute() {
@@ -500,7 +523,11 @@ function savedQueryKey() {
   const connection = state.overview.connection;
   return (
     "dynamodb-tools.saved-queries.v1:" +
-    JSON.stringify([connection.endpoint, connection.region, state.table])
+    JSON.stringify(
+      connection.mode === "aws"
+        ? [connection.account, connection.region, state.table]
+        : [connection.endpoint, connection.region, state.table],
+    )
   );
 }
 function readSavedQueries(key = savedQueryKey()) {
@@ -911,9 +938,9 @@ async function renderSettings(generation) {
   main.innerHTML =
     heading(
       "Workspace settings",
-      "The details behind your local development environment.",
+      "Your connection, access mode, and startup configuration.",
     ) +
-    `<div class="settings-grid"><section class="panel"><div class="panel-heading"><h2>Connection</h2>${icon("database")}</div><div class="panel-body"><div class="schema-row"><span>Endpoint</span><code>${esc(s.dynamodb_endpoint_url)}</code></div><div class="schema-row"><span>Data folder</span><code>${esc(s.data_path)}</code></div><div class="schema-row"><span>Log level</span><code>${esc(s.log_level)}</code></div><div class="schema-row"><span>Upload limit</span><span>${bytes(data.maxImportBytes)}</span></div><p class="info-note">Connection settings come from the container environment. Change the environment variables and restart the container to apply them. AWS credentials stay on the server.</p></div></section><section class="panel"><div class="panel-heading"><h2>Startup tasks</h2>${icon("play")}</div><div class="panel-body">${[
+    `<div class="settings-grid"><section class="panel"><div class="panel-heading"><h2>Connection</h2>${icon("database")}</div><div class="panel-body"><div class="schema-row"><span>Endpoint</span><code>${esc(s.dynamodb_endpoint_url)}</code></div><div class="schema-row"><span>Mode</span><strong>${s.dynamodb_mode === "aws" ? "AWS" : "Local"} · ${s.read_only ? "Read-only" : "Writes enabled"}</strong></div>${s.dynamodb_mode === "aws" ? `<div class="schema-row"><span>Account / region</span><code>${esc(state.overview?.connection?.account || "Not connected")} · ${esc(state.overview?.connection?.region || "")}</code></div><div class="schema-row"><span>Profile</span><code>${esc(s.aws_profile || "Default credential chain")}</code></div><div class="schema-row"><span>Signed in as</span><code>${esc(state.overview?.connection?.principal || "Not connected")}</code></div>` : ""}<div class="schema-row"><span>Data folder</span><code>${esc(s.data_path)}</code></div><div class="schema-row"><span>Log level</span><code>${esc(s.log_level)}</code></div><div class="schema-row"><span>Upload limit</span><span>${bytes(data.maxImportBytes)}</span></div><p class="info-note">Use the connection form above to test and save changes. AWS credentials stay with your configured provider.</p></div></section><section class="panel"><div class="panel-heading"><h2>Startup tasks</h2>${icon("play")}</div><div class="panel-body">${[
       ["delete_tables_on_startup", "Delete tables"],
       ["purge_tables_on_startup", "Purge tables"],
       ["create_tables_on_startup", "Create tables from schemas"],
@@ -926,7 +953,8 @@ async function renderSettings(generation) {
       )
       .join(
         "",
-      )}<p class="info-note">Tasks run in this order before the workspace opens. These indicators show your configuration; they are not switches.</p></div></section></div><div class="note-card">${icon("code")}<div><h3>Your workspace, in your workflow.</h3><p>Use the built-in <a href="/docs" target="_blank" rel="noopener" style="color:var(--purple)">API reference</a> to automate the same actions. This console is intended for trusted local development environments. Keep it bound to localhost.</p></div></div>`;
+      )}<p class="info-note">${s.dynamodb_mode === "aws" || s.read_only || s.connection_saved ? "Startup mutations are disabled for AWS, read-only, and saved connections, regardless of startup flags." : "Tasks run in this order before the workspace opens. These indicators show your configuration; they are not switches."}</p></div></section></div><div class="note-card">${icon("code")}<div><h3>Your workspace, in your workflow.</h3><p>Use the built-in <a href="/docs" target="_blank" rel="noopener" style="color:var(--purple)">API reference</a> to automate the same actions. This console is intended for trusted local development environments. Keep it bound to localhost.</p></div></div>`;
+  await renderConnectionForm(generation);
 }
 function openDialog(title, description, body, actions, context = {}) {
   dialogContext = context;
@@ -1196,6 +1224,7 @@ async function syncItemEditor() {
   } finally {
     context.editor.busy = false;
     controls.forEach(([node, disabled]) => (node.disabled = disabled));
+    restrictWriteControls();
   }
 }
 async function itemEditorAction(name, target) {
@@ -1632,6 +1661,7 @@ document.addEventListener("keydown", (event) => {
     setSidebar(false);
   }
 });
+observeConnectionControls();
 window.addEventListener("hashchange", navigate);
 window.addEventListener("online", () => refreshOverview(false));
 setInterval(() => {

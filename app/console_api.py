@@ -2,13 +2,23 @@ import json
 from typing import Literal
 
 from boto3.dynamodb.types import TypeDeserializer
-from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
+from botocore.exceptions import (
+    BotoCoreError,
+    ClientError,
+    NoCredentialsError,
+    NoRegionError,
+    ParamValidationError,
+    ProfileNotFound,
+    SSOTokenLoadError,
+    UnauthorizedSSOTokenError,
+)
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
 
 from .config import settings
+from .connection import connection_info
 from .console_service import ConsoleService
 from .data_codec import item_from_wire, parse_import, to_wire
 from .data_service import DataService
@@ -30,11 +40,18 @@ class ConsoleRoute(APIRoute):
         async def wrapped(request):
             try:
                 return await handler(request)
+            except PermissionError as error:
+                raise HTTPException(403, str(error)) from error
             except FileNotFoundError as error:
                 raise HTTPException(404, "The requested file was not found") from error
             except ClientError as error:
                 code = error.response["Error"]["Code"]
                 status = {
+                    "AccessDeniedException": 403,
+                    "UnrecognizedClientException": 401,
+                    "InvalidClientTokenId": 401,
+                    "ExpiredToken": 401,
+                    "ExpiredTokenException": 401,
                     "ResourceNotFoundException": 404,
                     "ExpiredIteratorException": 410,
                     "TrimmedDataAccessException": 410,
@@ -45,6 +62,8 @@ class ConsoleRoute(APIRoute):
                     "ConditionalCheckFailedException": 409,
                 }.get(code, 502)
                 message = error.response["Error"].get("Message", code)
+                if status == 401:
+                    message += " Refresh your AWS sign-in or choose a different profile in Settings."
                 if code == "ConditionalCheckFailedException":
                     message = "The item already exists, or the item you were editing no longer exists. Refresh and try again."
                 raise HTTPException(status, message) from error
@@ -56,6 +75,19 @@ class ConsoleRoute(APIRoute):
                 ArithmeticError,
             ) as error:
                 raise HTTPException(400, str(error)) from error
+            except (
+                NoCredentialsError,
+                ProfileNotFound,
+                UnauthorizedSSOTokenError,
+                SSOTokenLoadError,
+                NoRegionError,
+            ) as error:
+                raise HTTPException(
+                    503,
+                    "AWS sign-in or region is unavailable. Check AWS_PROFILE and "
+                    "AWS_DEFAULT_REGION on the server. For SSO, run "
+                    "aws sso login --profile YOUR_PROFILE on the host, then retry.",
+                ) from error
             except BotoCoreError as error:
                 raise HTTPException(
                     503,
@@ -191,6 +223,7 @@ def run_import(name, filename, items):
 @router.get("/overview")
 def overview():
     service = ConsoleService()
+    connection = connection_info(service.client)
     tables = service.tables()
     files = sum(
         len(list(DataService().get_data_files_for_table(table["TableName"])))
@@ -199,10 +232,7 @@ def overview():
     return {
         "tables": to_wire(tables),
         "files": files,
-        "connection": {
-            "endpoint": settings.dynamodb_endpoint_url,
-            "region": service.client.meta.region_name,
-        },
+        "connection": connection,
         "startup": get_startup_tasks_status(),
         "stats": table_stats.model_dump(),
         "operations": operations.list(),
@@ -212,7 +242,7 @@ def overview():
 @router.get("/settings")
 def configuration():
     return {
-        "settings": settings.model_dump(),
+        "settings": settings.effective_settings(),
         "maxImportBytes": MAX_IMPORT,
         "history": "Last 100 operations in this server session",
     }

@@ -5,12 +5,10 @@ import re
 from hashlib import sha256
 from typing import Literal
 
-import boto3
-from botocore.config import Config
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .config import settings
+from .connection import client as connection_client
 from .console_api import ConsoleRoute
 from .console_service import ConsoleService
 from .data_codec import attribute_from_wire, item_from_wire, to_wire
@@ -21,11 +19,7 @@ router = APIRouter(prefix="/api", route_class=ConsoleRoute)
 
 
 def streams_client():
-    return boto3.Session().client(
-        "dynamodbstreams",
-        endpoint_url=settings.dynamodb_endpoint_url,
-        config=Config(connect_timeout=3, read_timeout=10, retries={"max_attempts": 2}),
-    )
+    return connection_client("dynamodbstreams")
 
 
 def pack_cursor(value, scope):

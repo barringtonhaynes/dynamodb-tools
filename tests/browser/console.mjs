@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 import { checkItemEditor } from "./item-editor.mjs";
+import { checkAWSConnectionUI } from "./connection.mjs";
 import { checkInsights } from "./insights.mjs";
 import { checkWorkspace } from "./workspace.mjs";
 import { assertIconBounds } from "./icon-layout.mjs";
@@ -390,6 +391,13 @@ try {
     table: name,
     operation,
     jsonResponse,
+    accessibility,
+    noPageOverflow,
+  });
+
+  await checkAWSConnectionUI({
+    page,
+    table: name,
     accessibility,
     noPageOverflow,
   });

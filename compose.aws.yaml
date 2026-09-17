@@ -1,0 +1,19 @@
+# Run separately from compose.yaml; no local emulator or seed files are needed.
+services:
+  dynamodb-tools-aws:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "127.0.0.1:8003:80"
+    environment:
+      - DYNAMODB_MODE=aws
+      - AWS_PROFILE
+      - AWS_DEFAULT_REGION
+      - READ_ONLY=${READ_ONLY:-true}
+      - CONNECTION_SETTINGS_PATH=/preferences/connection.json
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
+      - aws-preferences:/preferences
+volumes:
+  aws-preferences:

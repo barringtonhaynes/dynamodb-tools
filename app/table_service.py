@@ -5,11 +5,10 @@ from collections.abc import Iterable
 from decimal import Decimal
 from enum import Enum
 
-import boto3
 from boto3.dynamodb.types import TypeDeserializer
 from botocore.exceptions import ClientError
 
-from .config import settings
+from .connection import resource
 from .data_codec import parse_import
 from .table_stats import table_stats
 
@@ -28,10 +27,7 @@ class DataFileType(str, Enum):
 
 class TableService:
     def __init__(self) -> None:
-        session = boto3.Session()
-        self.resource = session.resource(
-            "dynamodb", endpoint_url=settings.dynamodb_endpoint_url
-        )
+        self.resource = resource()
         self.client = self.resource.meta.client
 
     def list_tables(self) -> list[str]:

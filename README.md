@@ -198,6 +198,95 @@ The console is intended for **trusted local development**. It has no login syste
 keep its published port bound to localhost. Database credentials stay on the
 server. Browser writes from a different origin are rejected.
 
+### Connect to an AWS account
+
+The console can run locally against real AWS DynamoDB. Set `DYNAMODB_MODE=aws`;
+DynamoDB, Streams, and STS then use their own regional AWS endpoints. This mode
+ignores the local endpoint override, disables **all startup mutations** regardless
+of startup flags, and defaults to read-only. One server process connects to one
+profile/account and region at a time. Use Settings to switch connections.
+
+In **Settings → Choose a connection**, select AWS account and leave profile and
+region blank to use the standard AWS SDK defaults, including `~/.aws/credentials`,
+`~/.aws/config`, environment credentials, SSO, credential processes, and workload
+roles. OS keychains work through a configured credential provider such as
+`credential_process`; the app does not independently read arbitrary OS keychains.
+Named profiles discovered in your AWS configuration appear as suggestions.
+
+Choose Test connection to verify the account and region, then Save & connect.
+Saving also verifies the connection, persists preferences atomically, and reloads
+the interface. Failed checks preserve the previous connection. Switching is blocked
+while requests, exports, or background operations are active. Other open tabs must
+reload before operating on the new connection. Activity and startup counters clear
+when you switch; changing a connection does not run startup tasks.
+
+Preferences use a small JSON file containing mode, profile, region, endpoint, and
+read-only choice—never access keys, tokens, or copied credentials. The path is shown
+in Settings: `~/Library/Application Support/dynamodb-tools/connection.json` on
+macOS, `$XDG_CONFIG_HOME/dynamodb-tools/connection.json` (default `~/.config`) on
+Linux, and `%LOCALAPPDATA%/dynamodb-tools/connection.json` on Windows. Set
+`CONNECTION_SETTINGS_PATH` to choose another path or isolate multiple console
+instances. Saved connection fields override environment settings on subsequent
+starts. Remove the saved file to return to environment/default configuration.
+Startup mutations stay disabled for saved connections, including local endpoints.
+
+Use an existing AWS CLI profile, including an IAM Identity Center / SSO profile.
+For SSO, sign in on the host first:
+
+```sh
+aws sso login --profile your-profile
+```
+
+Run from this repository using its Python environment:
+
+```sh
+DYNAMODB_MODE=aws AWS_PROFILE=your-profile AWS_DEFAULT_REGION=eu-west-2 READ_ONLY=true \
+  .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 18210
+```
+
+Then open **http://127.0.0.1:18210**. The workspace displays the account ID, region,
+read-only status, and signed-in principal. No credentials are sent to the browser.
+The existing local console can stay open on its own port. For a non-SSO profile,
+skip the login command. Without `AWS_PROFILE`, the SDK uses its normal credential
+chain (environment credentials, workload roles, and other configured providers).
+Explicit profiles take precedence over stray environment credentials. Clear local
+dummy credential environment variables before using the default AWS chain; the
+Docker image supplies no dummy credentials or region in AWS mode.
+
+Alternatively, run the separate AWS Compose configuration:
+
+```sh
+AWS_PROFILE=your-profile AWS_DEFAULT_REGION=eu-west-2 \
+  docker compose -f compose.aws.yaml up --build
+```
+
+Open **http://127.0.0.1:8003**. This configuration mounts `~/.aws` read-only, persists connection preferences in
+a named volume, and starts no emulator. `AWS_PROFILE` and `AWS_DEFAULT_REGION` are
+optional; when omitted, the SDK uses your configured defaults. Refresh SSO sessions on the host when they expire; profiles
+that depend on an external `credential_process` need that program available inside
+the container, so native Python is simpler for those profiles.
+
+`READ_ONLY=true` permits browsing, scans, queries, exports, stream reads, and
+PartiQL SELECT. Both the HTTP layer and shared SDK boundary reject writes,
+including legacy imports, batches, transactions, and PartiQL changes. To enable
+manual writes, select Allow writes in Settings and Save & connect (or configure
+`READ_ONLY=false` before a connection has been saved); startup mutations remain disabled
+in AWS mode. IAM is the authorization boundary: a read-only IAM role provides
+additional protection, and enabling writes in this app never grants AWS permissions.
+
+The connection verifies identity through STS and needs `dynamodb:ListTables` and
+`dynamodb:DescribeTable` to show the workspace. Grant the data actions you need
+(e.g. `GetItem`, `Scan`, `Query`, `PartiQLSelect`, `DescribeTimeToLive`) on the
+relevant tables and indexes. Streams additionally need `ListStreams`,
+`DescribeStream`, `GetShardIterator`, and `GetRecords` for the appropriate streams.
+An account with restricted table permissions may reject the all-table overview.
+Reads, sampling, and exports use real AWS capacity even in read-only mode. Bind
+the app to localhost; it does not add a web login or multi-user access controls.
+
+Saved queries and item schemas are separated by AWS account, region, and table.
+Use [AWS's credential setup guide](https://docs.aws.amazon.com/boto3/latest/guide/credentials.html)
+for profiles, SSO, environment credentials, and assumed roles.
+
 ### Mounted files
 
 ```text
@@ -273,15 +362,20 @@ imports are limited to **10 MB**; startup seeding can read larger local files.
 | `CREATE_TABLES_ON_STARTUP` | `True` | Apply schemas from `create/` |
 | `UPDATE_TABLES_ON_STARTUP` | `True` | Apply schemas from `update/` |
 | `SEED_TABLES_ON_STARTUP` | `True` | Load files from `seed/` |
-| `DYNAMODB_ENDPOINT_URL` | `http://dynamodb:8000` | DynamoDB endpoint |
-| `AWS_DEFAULT_REGION` | `us-east-1` in Docker | AWS region |
-| `AWS_ACCESS_KEY_ID` | `localaccesskey` in Docker | Dummy local access key |
-| `AWS_SECRET_ACCESS_KEY` | `localsecretkey` in Docker | Dummy local secret key |
-| `AWS_SESSION_TOKEN` | Empty in Docker | Optional AWS session token |
+| `DYNAMODB_MODE` | `local` | `local` endpoint or `aws` regional services |
+| `READ_ONLY` | `false` locally; `true` in AWS mode | Block database mutations and startup tasks |
+| `AWS_PROFILE` | Unset | Named AWS CLI/SSO profile for AWS mode |
+| `DYNAMODB_ENDPOINT_URL` | `http://dynamodb:8000` | Local endpoint; ignored in AWS mode |
+| `AWS_REGION` | Unset | Explicit region preference; blank uses SDK defaults |
+| `AWS_DEFAULT_REGION` | SDK profile default; `us-east-1` locally | Standard SDK region override |
+| `CONNECTION_SETTINGS_PATH` | OS application configuration folder | Local connection preferences JSON path |
+| `AWS_ACCESS_KEY_ID` | `localaccesskey` in local mode | Local dummy key; AWS mode uses the credential chain |
+| `AWS_SECRET_ACCESS_KEY` | `localsecretkey` in local mode | Local dummy secret; AWS mode uses the credential chain |
+| `AWS_SESSION_TOKEN` | Unset | Optional AWS session token |
 
-Defaults for AWS credentials are set by the Dockerfile. Native Python development
-uses boto3's usual credential configuration. DynamoDB Local requires an
-alphanumeric access key; the included dummy values meet that requirement.
+Dummy credentials are supplied only for local mode; they are not baked into the
+Docker image. AWS mode uses boto3's credential providers. Startup flags apply only
+to local connections with writes enabled.
 
 ## API
 

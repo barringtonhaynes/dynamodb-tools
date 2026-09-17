@@ -15,6 +15,14 @@ def isolated_settings(monkeypatch, tmp_path):
         settings, "dynamodb_endpoint_url", "https://dynamodb.us-east-1.amazonaws.com"
     )
     monkeypatch.setattr(settings, "data_path", str(tmp_path))
+    monkeypatch.setattr(settings, "dynamodb_mode", "local")
+    monkeypatch.setattr(settings, "read_only", None)
+    monkeypatch.setattr(settings, "aws_profile", None)
+    monkeypatch.setattr(settings, "aws_region", None)
+    monkeypatch.setattr(settings, "connection_saved", False)
+    monkeypatch.setattr(
+        settings, "connection_settings_path", str(tmp_path / "connection.json")
+    )
     for field in TableStats.model_fields:
         setattr(table_stats, field, 0)
 

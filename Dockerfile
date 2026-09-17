@@ -19,10 +19,6 @@ ENV CREATE_TABLES_ON_STARTUP=True
 ENV UPDATE_TABLES_ON_STARTUP=True
 ENV SEED_TABLES_ON_STARTUP=True
 ENV DYNAMODB_ENDPOINT_URL=http://dynamodb:8000
-ENV AWS_DEFAULT_REGION=us-east-1
-ENV AWS_ACCESS_KEY_ID=localaccesskey
-ENV AWS_SECRET_ACCESS_KEY=localsecretkey
-ENV AWS_SESSION_TOKEN=""
 EXPOSE 80
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
 

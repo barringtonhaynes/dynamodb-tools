@@ -4,10 +4,7 @@ import binascii
 import json
 from hashlib import sha256
 
-import boto3
-from botocore.config import Config
-
-from .config import settings
+from .connection import client
 from .data_codec import attribute_from_wire, item_from_wire, to_wire
 from .editor_codec import convert_item
 from .item_insights import item_metrics, read_metrics, table_checks
@@ -16,13 +13,7 @@ from .query_filters import apply_read_options
 
 class ConsoleService:
     def __init__(self):
-        self.client = boto3.Session().client(
-            "dynamodb",
-            endpoint_url=settings.dynamodb_endpoint_url,
-            config=Config(
-                connect_timeout=3, read_timeout=10, retries={"max_attempts": 2}
-            ),
-        )
+        self.client = client()
 
     def describe(self, name):
         return self.client.describe_table(TableName=name)["Table"]
