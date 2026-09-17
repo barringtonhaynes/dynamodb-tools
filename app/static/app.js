@@ -98,6 +98,17 @@ async function api(url, options = {}) {
     } catch {
       data = { detail: response.statusText };
     }
+    if (
+      response.status === 428 &&
+      data.awsConfirmation &&
+      !options.headers?.["X-AWS-Challenge"]
+    ) {
+      const approval = await confirmAWSChange(data.awsConfirmation);
+      return api(url, {
+        ...options,
+        headers: { ...options.headers, ...approval },
+      });
+    }
     const detail = Array.isArray(data.detail)
       ? data.detail
           .map((e) => `${e.loc?.slice(1).join(".") || "Input"}: ${e.msg}`)
@@ -417,6 +428,15 @@ async function renderDetailTab() {
     await loadMounted(generation);
   } else {
     content.innerHTML = `<section class="panel"><div class="panel-heading"><div><h2>Table configuration</h2><p>Update capacity or create, update, and delete secondary indexes.</p></div>${button("Update schema", "update-schema", "code")}</div><div class="panel-body"><p class="info-note" style="margin:0">Schema changes use the DynamoDB UpdateTable format. Existing data stays in place. Primary keys cannot be changed after table creation.</p></div></section><section class="panel danger-panel"><div class="panel-heading"><h2>Destructive actions</h2></div><div class="panel-body"><div class="danger-action"><div><h3>Purge all items</h3><p>Empty this table while keeping its schema and indexes. This cannot be undone.</p></div>${button("Purge table", "purge-table", "trash", "danger-outline")}</div><div class="danger-action"><div><h3>Delete this table</h3><p>Remove the table, every item, and all its indexes. This cannot be undone.</p></div>${button("Delete table", "delete-table", "trash", "danger-outline")}</div></div></section>`;
+    if (state.overview.connection.mode === "aws") {
+      const danger = content.querySelector(".danger-panel");
+      const gate = document.createElement("details");
+      gate.className = "aws-danger-zone";
+      gate.innerHTML =
+        "<summary>Danger zone · real AWS data</summary><p>Expand only when you intend to empty or delete this table. Each operation requires a separate AWS confirmation.</p>";
+      danger.replaceWith(gate);
+      gate.append(danger);
+    }
     await renderTTL(content, generation);
   }
 }

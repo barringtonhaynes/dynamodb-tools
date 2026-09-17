@@ -23,7 +23,7 @@ function connectionPresentation() {
     : "DEV";
   const notice = document.getElementById("cloud-notice");
   notice.hidden = !aws && !c.readOnly;
-  notice.innerHTML = `${icon("database")}<div><strong>${aws ? `AWS account ${esc(c.account)} · ${esc(c.region)}` : "Local connection"} · ${c.readOnly ? "Read-only" : "Writes enabled"}</strong><p>${c.readOnly ? "Browse, query, and export. Changes are blocked by this server." : "Changes affect this AWS account. Your IAM permissions apply."} ${aws ? "Reads use AWS capacity. Automatic startup changes are disabled." : ""}</p></div>`;
+  notice.innerHTML = `${icon("database")}<div><strong>${aws ? `AWS account ${esc(c.account)} · ${esc(c.region)}` : "Local connection"} · ${c.readOnly ? "Read-only" : "Writes enabled"}</strong><p>${c.readOnly ? "Browse, query, and export. Changes are blocked by this server." : "Every change requires a separate AWS confirmation. Your IAM permissions apply."} ${aws ? "Reads use AWS capacity. Automatic startup changes are disabled." : ""}</p></div>`;
   restrictWriteControls();
 }
 function restrictWriteControls() {
@@ -129,4 +129,59 @@ async function renderConnectionForm(generation) {
     event.preventDefault();
     run(true);
   };
+}
+
+// A separate modal preserves the editor and its draft underneath.
+function confirmAWSChange(challenge) {
+  return new Promise((resolve, reject) => {
+    const modal = document.createElement("dialog");
+    modal.className = "aws-confirmation";
+    modal.setAttribute("aria-labelledby", "aws-confirm-title");
+    modal.innerHTML = `<form><div class="dialog-heading"><div><h2 id="aws-confirm-title">Confirm a real AWS change</h2><p>This approval applies to one exact request only.</p></div></div><div class="dialog-body"><div class="error-banner"><strong>${esc(challenge.action)}</strong><br>AWS account ${esc(challenge.account)} · ${esc(challenge.region)}<br>Target: ${esc(challenge.target)}</div>${challenge.statement ? `<pre class="code-block" tabindex="0">${esc(challenge.statement)}</pre>` : ""}<p>Review the target carefully. This can change or remove live data. There is no automatic undo.</p><div class="field"><label for="aws-confirm-input">Type <strong class="aws-confirm-phrase">${esc(challenge.phrase)}</strong> to approve</label><input id="aws-confirm-input" autocomplete="off" spellcheck="false" required></div><p id="aws-confirm-timer" role="status"></p><p class="info-note">Approval expires after two minutes. Another action, changed data, or a different connection requires a new confirmation.</p></div><div class="dialog-actions"><button type="button" class="button" id="aws-confirm-cancel">Cancel change</button><button type="submit" class="button danger" disabled>Apply this AWS change</button></div></form>`;
+    document.body.append(modal);
+    const input = modal.querySelector("input");
+    const submit = modal.querySelector('[type="submit"]');
+    const started = Date.now();
+    const update = () => {
+      const elapsed = (Date.now() - started) / 1000;
+      const remaining = Math.max(0, Math.ceil(challenge.waitSeconds - elapsed));
+      const expired = elapsed >= challenge.expiresSeconds;
+      submit.disabled =
+        expired || remaining > 0 || input.value !== challenge.phrase;
+      modal.querySelector("#aws-confirm-timer").textContent = expired
+        ? "Approval expired. Cancel and start again."
+        : remaining
+          ? `Review the target · ${remaining}s remaining`
+          : "Ready when the confirmation matches.";
+    };
+    const timer = setInterval(update, 250);
+    const finish = (approved) => {
+      clearInterval(timer);
+      modal.close();
+      modal.remove();
+      if (approved)
+        resolve({
+          "X-AWS-Challenge": challenge.token,
+          "X-AWS-Confirmation": input.value,
+        });
+      else
+        reject(
+          new Error("AWS change cancelled. Nothing was sent for execution."),
+        );
+    };
+    input.oninput = update;
+    modal.querySelector("#aws-confirm-cancel").onclick = () => finish(false);
+    modal.oncancel = (event) => {
+      event.preventDefault();
+      finish(false);
+    };
+    modal.querySelector("form").onsubmit = (event) => {
+      event.preventDefault();
+      update();
+      if (!submit.disabled) finish(true);
+    };
+    update();
+    modal.showModal();
+    input.focus();
+  });
 }

@@ -2544,3 +2544,30 @@ meter {
     gap: 16px;
   }
 }
+
+.aws-danger-zone {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.aws-danger-zone > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.aws-danger-zone > p {
+  line-height: 1.6;
+}
+.aws-confirmation {
+  max-width: 680px;
+}
+.aws-confirmation .dialog-body {
+  line-height: 1.6;
+}
+.aws-confirm-phrase {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: monospace;
+  margin: 8px 0;
+}

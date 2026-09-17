@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import connection
+from . import aws_safety, connection
 from .config import settings
 from .connection import READ_ONLY_MESSAGE, read_request
 from .connection_api import router as connection_router
@@ -99,7 +99,9 @@ async def console_security(request: Request, call_next):
             switching_connection = True
         active_requests += 1
     try:
-        response = await call_next(request)
+        response = await aws_safety.protect(request) if dynamic else None
+        if response is None:
+            response = await call_next(request)
     finally:
         if dynamic:
             active_requests -= 1

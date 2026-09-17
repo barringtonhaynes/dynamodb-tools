@@ -274,6 +274,20 @@ manual writes, select Allow writes in Settings and Save & connect (or configure
 in AWS mode. IAM is the authorization boundary: a read-only IAM role provides
 additional protection, and enabling writes in this app never grants AWS permissions.
 
+AWS writes stay guarded even after choosing **Allow writes**. Purge and table deletion
+are tucked inside a collapsed **Danger zone**. Every database-changing request—including
+item edits/deletes, imports, schema updates, TTL, Streams, and PartiQL writes—requires a
+separate confirmation showing the verified account, region, action, and target. Type
+the displayed phrase and wait five seconds before applying it. PartiQL shows the full
+statement because it can target a different table from the current workspace.
+
+The server enforces the pause and a two-minute expiry. Each approval is single-use,
+bound to the exact request body, method, path, query, connection, and AWS identity;
+changing any of these requires another confirmation. Approvals live only in memory
+and do not create a general write-unlock window. Read-only mode still blocks writes
+entirely. Local development keeps its existing workflow. These are accident-prevention
+controls, not authentication or a replacement for IAM. There is no automatic undo.
+
 The connection verifies identity through STS and needs `dynamodb:ListTables` and
 `dynamodb:DescribeTable` to show the workspace. Grant the data actions you need
 (e.g. `GetItem`, `Scan`, `Query`, `PartiQLSelect`, `DescribeTimeToLive`) on the
@@ -413,6 +427,14 @@ See **`/docs`** for the full request schemas and try-it controls.
 | `GET /api/operations` | Current session's activity |
 | `GET /api/operations/{id}` | Status of a queued operation |
 | `GET /api/settings` | Read-only configuration |
+
+In AWS write mode, mutation requests first return **428** with `awsConfirmation`.
+After reviewing its account, target, and action, wait `waitSeconds`, then resubmit the
+**identical** request with `X-AWS-Challenge` set to its `token` and
+`X-AWS-Confirmation` set to its exact `phrase`. This handshake also applies to legacy
+imports and API documentation requests. A missing approval cannot dispatch a write;
+early, mismatched, expired, or reused approvals return 409. If a submitted write's
+outcome is uncertain, inspect the item or operation before starting another approval.
 
 Queued requests return **202** with an operation ID. Poll that operation to learn
 whether it completed or failed; acceptance is not success. Invalid input returns
