@@ -1,13 +1,13 @@
 # Install DynamoDB Tools
 
-Version 0.3.0 is a local preview with a bundled Python service. You do not need a
+Version 0.4.0 is a local preview with a bundled Python service. You do not need a
 source checkout, Python, Node or Docker to connect to AWS. Credentials remain in
 your normal AWS SDK providers (environment, shared configuration, profiles, SSO,
 credential processes or workload roles). SSO sessions must already be signed in.
 
 ## Desktop
 
-On Apple Silicon macOS, open `dynamodb-tools-0.3.0-mac-arm64.dmg`, drag **DynamoDB
+On Apple Silicon macOS, open `dynamodb-tools-0.4.0-mac-arm64.dmg`, drag **DynamoDB
 Tools** into Applications, then launch it. A ZIP containing the same application
 is also provided. Start in Settings: choose your AWS profile and region, or an
 optional local DynamoDB endpoint, then **Test connection** and **Save & connect**.
@@ -28,17 +28,17 @@ before quitting because already-applied writes cannot be rolled back.
 ## Visual Studio Code
 
 Choose **Extensions → … → Install from VSIX…**, select
-`dynamodb-tools-0.3.0-darwin-arm64.vsix`, then run **DynamoDB Tools: Open Console**
+`dynamodb-tools-0.4.0-darwin-arm64.vsix`, then run **DynamoDB Tools: Open Console**
 from the Command Palette. The extension includes its own service and manages it
 without a terminal. **Restart Console** and **Stop Console** are also available.
 The explorer keeps the service available when you close its editor. Use **Stop Console** to stop it, or close VS Code. Use a trusted local workspace.
 
-In extension 0.3.0, you can also click the **DynamoDB Tools** database icon in the
+In extension 0.4.0, you can also click the **DynamoDB Tools** database icon in the
 Activity Bar. Its expandable sidebar is the main navigation: favourite tables, all tables, saved queries, table sections and settings. Selecting a table opens its details in the editor without a duplicate sidebar. Simply showing the sidebar does not start the service; expanding Tables or Favourites loads connection metadata. Use the refresh icon to refresh discovery. If listing is restricted, choose **All tables / open by name**.
 
-Extension 0.2.1 follows your active VS Code colour theme and editor font settings,
+The extension follows your active VS Code colour theme and editor font settings,
 including both high-contrast variants. Switching themes preserves unsaved drafts
-and cursor selection. The standalone desktop remains version 0.3.0.
+and cursor selection. Both installations include the Query planner under each table.
 
 The extension is a desktop, local extension, including when using Remote SSH or
 containers: it uses the credentials and endpoints on your local computer. Browser

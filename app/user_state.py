@@ -126,7 +126,7 @@ def local_info():
     local = store()
     return {
         "installed": True,
-        "version": "0.3.0",
+        "version": "0.4.0",
         "definitions": local.read(),
         "path": str(local.path),
     }

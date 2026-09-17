@@ -63,6 +63,7 @@ jobs:
             sleep 1
           done
           npm run test:browser
+          node tests/browser/query-planner.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

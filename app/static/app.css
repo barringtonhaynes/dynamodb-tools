@@ -2712,3 +2712,87 @@ meter {
   text-align: left;
   font-weight: 520;
 }
+
+.planner-intro,
+.planner-candidate-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.planner-intro {
+  align-items: end;
+  margin-bottom: 12px;
+}
+.planner-intro .field {
+  flex: 1;
+}
+#planner-form .field-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#planner-projection {
+  min-height: 92px;
+}
+.planner-condition {
+  display: grid;
+  grid-template-columns:
+    minmax(110px, 1.2fr) minmax(105px, 1fr) minmax(90px, 0.8fr)
+    minmax(110px, 1.2fr) minmax(100px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin: 14px 0;
+}
+.planner-condition .field {
+  min-width: 0;
+  margin: 0;
+}
+.planner-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  color: var(--secondary);
+}
+.planner-check input {
+  width: 16px;
+  height: 16px;
+}
+.planner-candidates {
+  display: grid;
+  gap: 18px;
+}
+.planner-candidate {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  min-width: 0;
+}
+.planner-candidate h3 {
+  margin: 0;
+}
+.planner-suggested {
+  border-color: var(--purple);
+}
+.planner-notes {
+  padding-left: 20px;
+  color: var(--secondary);
+  line-height: 1.7;
+}
+.planner-notes li + li {
+  margin-top: 6px;
+}
+@media (max-width: 1100px) {
+  .planner-condition {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 500px) {
+  #planner-form .field-pair {
+    grid-template-columns: 1fr;
+  }
+  .planner-condition {
+    grid-template-columns: 1fr;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+}

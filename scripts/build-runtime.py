@@ -63,7 +63,7 @@ def main():
     (build / "runtime/build-info.json").write_text(
         json.dumps(
             {
-                "version": "0.3.0",
+                "version": "0.4.0",
                 "platform": sys.platform,
                 "arch": {"aarch64": "arm64", "amd64": "x64", "x86_64": "x64"}.get(
                     platform.machine().lower(), platform.machine().lower()

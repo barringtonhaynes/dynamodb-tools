@@ -197,6 +197,40 @@ try {
     path: "test-results/desktop-explorer.png",
     fullPage: true,
   });
+  await page.getByRole("tab", { name: "Query planner", exact: true }).click();
+  await page.getByLabel("Start from a pattern").selectOption("collection");
+  await page
+    .getByRole("button", { name: "Compare access paths", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Export plan", exact: true })
+    .waitFor();
+  assert(
+    await page
+      .locator(".planner-candidate")
+      .first()
+      .getByRole("button", { name: "Use in Items · review first" })
+      .isVisible(),
+  );
+  const plannerAxe = await new AxeBuilder({ page })
+    .setLegacyMode()
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  assert.deepEqual(
+    plannerAxe.violations.map((v) => v.id),
+    [],
+  );
+  await page.screenshot({
+    path: "test-results/desktop-query-planner.png",
+    fullPage: true,
+  });
+  await page
+    .locator(".planner-candidate")
+    .first()
+    .getByRole("button", { name: "Use in Items · review first" })
+    .click();
+  await page.getByText("Query plan ready", { exact: true }).waitFor();
+  assert.equal(await page.locator("#page-label").textContent(), "Not run yet");
   assert.deepEqual(errors, []);
   await app.close();
   app = undefined;

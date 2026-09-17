@@ -39,6 +39,7 @@ CSS, JavaScript, and icons without external fonts, CDNs, or analytics.
 | Streams | Enable/disable change capture, choose image contents, discover streams and shards, read from the oldest record, from now, or a sequence number; inspect before/after images and export a read. |
 | PartiQL | Run parameterized SELECT, INSERT, UPDATE, or DELETE statements. Writes require confirmation; reads support continuation and result export. |
 | Saved queries | Save named scans and queries, reload them from the first page, rename or update them, and delete saved definitions. |
+| Query planner | Compare table, GSI and LSI access paths; identify key conditions versus post-read filters, projection gaps and sparse coverage. Prepare a query, export a plan, or propose an index design. |
 | Data model | Inspect bounded samples for entity types, key prefixes, attribute presence, partition collections, and sparse-index eligibility. Open partition, prefix, and index queries directly. |
 | Item editor | Switch between DynamoDB JSON, standard JSON, and an editable attribute table. Syntax-highlight and validate JSON, check table/index keys and an optional entity schema, inspect estimated sizes and type help, and create, edit, duplicate, or delete items. Creating an item refuses to overwrite an existing key. |
 | Imports | Drag in CSV, plain JSON, or DynamoDB JSON; validate the entire file and preview records before importing. Load files from mounted folders too. |
@@ -88,6 +89,29 @@ attributes always include the table's primary keys so item editing can fetch the
 complete record. Global secondary indexes reject strongly consistent reads.
 Saved queries include these options. Export page exports only the visible records
 and returned attributes; Export in the table header still exports the whole table.
+
+### Access-pattern query planner
+
+Open a table → **Query planner** (also in the VS Code sidebar). Enter the
+attributes you know, the fields you need back and any required sort order. Start
+with a single-table entity prefix, sparse customer queue or reverse-relationship
+example, or bring in the current Items query.
+
+**Compare access paths** uses table metadata only. It compares existing indexes,
+explains missing equality keys, post-read filters, projection gaps, sparse
+coverage, consistency and index status, and previews the typed AWS Query request.
+The suggestion favours fewer filters; it is not a measured cost prediction.
+Your last read's evaluated/returned counts and consumed capacity provide feedback.
+
+**Use in Items · review first** prepares the query without executing it. Choose
+**Run query** or **Save query** there. **Export plan** saves the pattern, comparison
+and optional proposed GSI design. Proposals explain key maintenance, hot-partition
+risk, sparse eligibility, projection and write/storage trade-offs; they do not
+create or change indexes. Exported query values can contain application data.
+
+This version handles scalar AND conditions and classic partition/sort keys,
+including composite strings. Native multi-attribute keys, OR and partition
+fan-out require a different query strategy and are explicitly unsupported.
 
 ### Single-table models, sparse indexes, and item sizes
 

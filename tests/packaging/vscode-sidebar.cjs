@@ -81,6 +81,24 @@ exports.check = async ({ webview, browser, root, port }) => {
   assert.equal(await webview.evaluate("window.sidebarReadCount"), 0);
   await pause(300);
   await page.screenshot({ path: "test-results/vscode-sidebar.png" });
+  await click("Query planner");
+  await wait('!!document.getElementById("planner-form")');
+  await webview.evaluate(
+    'document.getElementById("planner-template").value="collection"; applyPlannerTemplate(); document.getElementById("planner-form").requestSubmit()',
+  );
+  await wait('!!document.getElementById("planner-export")');
+  assert.equal(await webview.evaluate("window.sidebarReadCount"), 0);
+  assert(await webview.evaluate("!!plannerState.result.candidates[0].request"));
+  const plannerAxe = await webview.evaluate(
+    'axe.run(document, {runOnly:{type:"tag",values:["wcag2a","wcag2aa","wcag21aa"]}}).then(r => r.violations.map(v=>v.id))',
+  );
+  assert.deepEqual(plannerAxe, []);
+  await page.screenshot({ path: "test-results/vscode-query-planner.png" });
+  await webview.evaluate('document.querySelector("[data-plan-use]").click()');
+  await wait(
+    'document.getElementById("page-label")?.textContent === "Not run yet"',
+  );
+  assert.equal(await webview.evaluate("window.sidebarReadCount"), 0);
   await click("Schema & indexes");
   await wait(
     'state.detailTab === "schema" && !!document.querySelector(".schema-row")',
@@ -162,6 +180,7 @@ exports.check = async ({ webview, browser, root, port }) => {
         duplicateSidebarHidden: true,
         directTableAndSectionNavigation: true,
         queryPreviewWithoutRead: true,
+        queryPlannerWithoutRead: true,
         favouritesAndQueriesSurviveRestart: true,
         openByClick: true,
         warmRoutes: true,

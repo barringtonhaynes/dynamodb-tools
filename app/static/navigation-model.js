@@ -42,6 +42,12 @@ const workspaceNavigation = (() => {
     const children = [
       link(route + "/items", "Items", route),
       link(
+        route + "/planner",
+        "Query planner",
+        tableRoute(name, { view: "planner" }),
+        "search",
+      ),
+      link(
         route + "/schema",
         "Schema & indexes",
         tableRoute(name, { view: "schema" }),
@@ -180,7 +186,7 @@ const workspaceNavigation = (() => {
   const validRoute = (route) =>
     typeof route === "string" &&
     route.length < 4096 &&
-    /^(overview|imports|activity|settings(?:\/(connection|workspace|startup))?|tables(?:\/[A-Za-z0-9_.%-]+(?:\?(?:view=(items|schema|streams|model|partiql|manage)|query=[A-Za-z0-9%_.~!()*'-]+))?)?)$/.test(
+    /^(overview|imports|activity|settings(?:\/(connection|workspace|startup))?|tables(?:\/[A-Za-z0-9_.%-]+(?:\?(?:view=(items|schema|streams|model|planner|partiql|manage)|query=[A-Za-z0-9%_.~!()*'-]+))?)?)$/.test(
       route,
     );
   return {

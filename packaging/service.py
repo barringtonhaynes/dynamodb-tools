@@ -13,7 +13,7 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state-dir", required=True)
-    parser.add_argument("--version", action="version", version="0.3.0")
+    parser.add_argument("--version", action="version", version="0.4.0")
     args = parser.parse_args()
     root = Path(args.state_dir).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -84,7 +84,7 @@ def main():
                     "protocol": 1,
                     "url": f"http://127.0.0.1:{port}",
                     "token": host_runtime.session_token,
-                    "version": "0.3.0",
+                    "version": "0.4.0",
                 }
             ),
             flush=True,

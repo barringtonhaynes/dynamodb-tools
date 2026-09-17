@@ -312,6 +312,7 @@ async function navigate() {
     "schema",
     "streams",
     "model",
+    "planner",
     "partiql",
     "manage",
   ].includes(params.get("view"))
@@ -415,6 +416,7 @@ async function renderDetail(generation = state.generation) {
     ["import", "Import data", "upload"],
     ["streams", "Streams", "activity"],
     ["partiql", "PartiQL", "code"],
+    ["planner", "Query planner", "search"],
     ["model", "Data model", "layers"],
     ["schema", "Schema & indexes", "layers"],
     ["manage", "Manage table", "settings"],
@@ -450,6 +452,8 @@ async function renderDetailTab() {
     await renderStreams();
   } else if (state.detailTab === "partiql") {
     renderPartiQL();
+  } else if (state.detailTab === "planner") {
+    renderQueryPlanner();
   } else if (state.detailTab === "model") {
     renderModel();
   } else if (state.detailTab === "schema") {
@@ -816,6 +820,14 @@ async function loadItems() {
     state.items = result.items;
     state.nextCursor = result.cursor;
     state.result = result;
+    state.lastRead = {
+      table: state.table,
+      index: state.search.index,
+      mode: state.search.mode,
+      count: result.count,
+      scanned: result.scanned,
+      capacity: result.capacity,
+    };
     document.getElementById("item-result-label").textContent =
       `${fmt(result.count)} items · ${bytes(result.returnedBytes)} returned (est.) · ${result.capacity} RCU`;
     renderItems();

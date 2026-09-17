@@ -26,6 +26,7 @@ from .editor_codec import convert_item
 from .item_insights import check_contract, item_metrics, table_checks
 from .model_insights import inspect_model
 from .operations import operations
+from .query_planner import PlanRequest, plan_access
 from .startup_tasks import get_startup_tasks_status
 from .table_service import TableService
 from .table_stats import table_stats
@@ -458,3 +459,8 @@ def model_sample(name: str, request: ModelRequest):
         "cursor": page["cursor"],
         "capacity": page["capacity"],
     }
+
+
+@router.post("/tables/{name}/query-plan")
+def query_plan(name: str, request: PlanRequest):
+    return plan_access(ConsoleService().describe(name), request)

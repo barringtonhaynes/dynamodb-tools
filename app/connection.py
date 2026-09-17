@@ -129,7 +129,7 @@ def read_request(method, path):
         return True  # PartiQL SELECT is enforced at the SDK boundary.
     return bool(
         re.fullmatch(
-            r"/api/tables/[^/]+/(items/(search|get)|imports/preview|model|streams/records)/?",
+            r"/api/tables/[^/]+/(items/(search|get)|imports/preview|model|query-plan|streams/records)/?",
             path,
         )
     )
