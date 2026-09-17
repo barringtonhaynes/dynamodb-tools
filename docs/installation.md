@@ -64,14 +64,16 @@ settings folder separately only when you intend to remove it.
 
 | Target                      | Status                                                                     |
 | --------------------------- | -------------------------------------------------------------------------- |
-| macOS arm64 (Apple Silicon) | Locally built and exercised on the development Mac                         |
-| macOS x64                   | Native build job provided; validation awaits that CI runner                |
-| Windows x64                 | Native NSIS / VSIX build job provided; validation awaits that CI runner    |
-| Linux x64                   | AppImage / DEB / VSIX build job provided; validation awaits that CI runner |
+| macOS arm64 (Apple Silicon) | Native packaging CI passes; desktop and editor UI exercised locally        |
+| macOS x64                   | Native service tests and DMG / ZIP / VSIX packaging pass in CI             |
+| Windows x64                 | Native service tests and NSIS / VSIX packaging pass in CI                  |
+| Linux x64                   | Native service tests and AppImage / DEB / VSIX packaging pass in CI        |
 
-Only the first row is locally verified. The native packaging workflow must pass
-before other artifacts are called supported. Live AWS integration verification
-still requires valid credentials; local and fixture tests do not establish it.
+Interactive installation and UI are locally verified only on Apple Silicon.
+Other platforms have native build and service-test evidence, not desktop/editor
+UI verification or a broad OS-version compatibility claim. Live AWS integration
+verification still requires valid credentials; local and fixture tests do not
+establish it. See the [verification record](verification/t1-installable-preview.md).
 
 ## Build from source
 

@@ -49,9 +49,9 @@ future native CI builds may have different archive hashes.
 
 ## Boundaries of this evidence
 
-macOS arm64 is the locally verified target. Native jobs are supplied for Intel
-macOS, Windows x64 and Linux x64; their results must be checked before claiming
-support. The DMG test used an isolated installation/data directory and empty PATH
+macOS arm64 is the locally verified interactive target. Native jobs also pass
+for Intel macOS, Windows x64 and Linux x64, as recorded below; this does not
+establish desktop/editor UI compatibility on those systems. The DMG test used an isolated installation/data directory and empty PATH
 on the development Mac, not a fresh OS image. Persistence across replacement is
 provided by storage outside installation folders; a migration from a previously
 released installed version cannot be tested because this is the first preview.
@@ -61,3 +61,25 @@ used DynamoDB Local. Valid live credentials remain required for a real account
 smoke test. No real AWS data was mutated. Signing with a developer identity,
 notarization, marketplace publication, automatic updates and public releases
 remain separate release work.
+
+## Native CI follow-up
+
+The first packaging run found missing Debian maintainer metadata, VSCE treating
+macOS Python framework directory links as files, and a Windows UTF-8 fixture
+issue. The next Windows run exposed automatic CRLF checkout conflicting with
+format checks. Follow-up commits `cf4dcfe` and `f2ac040` fix these while retaining
+VSCE secret scanning. A local fixture reproduced the directory-link failure and
+verified that VSCE's supported `--follow-symlinks` option includes target files.
+
+Successful jobs each ran the Python suite, JavaScript checks, five native frozen
+service tests, desktop packaging, VSIX packaging and artifact upload:
+
+- [Apple Silicon macOS](https://github.com/barringtonhaynes/dynamodb-tools/actions/runs/35219503241/job/105195883090), commit `f2ac040`.
+- [Windows x64](https://github.com/barringtonhaynes/dynamodb-tools/actions/runs/35219503241/job/105195882931), commit `f2ac040`.
+- [Linux x64](https://github.com/barringtonhaynes/dynamodb-tools/actions/runs/35219503241/job/105195883297), commit `f2ac040`.
+- [Intel macOS](https://github.com/barringtonhaynes/dynamodb-tools/actions/runs/35219156910), commit `cf4dcfe`, successful Intel job; that overall run failed on the subsequently corrected Windows line endings.
+
+[Main regression CI](https://github.com/barringtonhaynes/dynamodb-tools/actions/runs/35219503450)
+also passes at `f2ac040`, including Python 3.11/3.13, browser and Docker builds.
+Local installer hashes above remain unchanged; the fixes affect native build
+metadata, VSIX traversal and checkout/test portability.
