@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 import { checkItemEditor } from "./item-editor.mjs";
 import { checkWorkspace } from "./workspace.mjs";
+import { assertIconBounds } from "./icon-layout.mjs";
 
 const base = process.env.CONSOLE_TEST_URL;
 assert(
@@ -39,6 +40,7 @@ async function operation(job) {
   throw new Error(`Operation timed out: ${job.action}`);
 }
 async function accessibility(label) {
+  await assertIconBounds(page, label);
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();

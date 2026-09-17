@@ -35,7 +35,7 @@ const paths = {
   copy: "M9 9h12v12H9zM15 9V3H3v12h6",
 };
 const icon = (name, cls = "") =>
-  `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] || paths.table}"/></svg>`;
+  `<svg class="${cls}" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] || paths.table}"/></svg>`;
 const esc = (value) =>
   String(value ?? "").replace(
     /[&<>"']/g,

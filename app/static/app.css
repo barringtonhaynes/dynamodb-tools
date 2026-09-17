@@ -80,15 +80,11 @@ h3,
 p {
   margin: 0;
 }
-button svg,
-a svg,
-span svg {
+svg {
   width: 18px;
   height: 18px;
   display: block;
   flex-shrink: 0;
-}
-svg {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
