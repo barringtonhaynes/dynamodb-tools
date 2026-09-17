@@ -11,6 +11,7 @@ on:
       - "*requirements*.txt"
       - "package*.json"
       - ".github/workflows/packages.yml"
+      - ".gitattributes"
 permissions:
   contents: read
 jobs:
