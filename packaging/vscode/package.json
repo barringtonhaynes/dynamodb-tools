@@ -2,7 +2,7 @@
   "name": "dynamodb-tools",
   "displayName": "DynamoDB Tools",
   "description": "A local DynamoDB workspace with safe AWS access, a bundled service, queries, Streams and lossless item editing.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "barringtonhaynes",
   "license": "Apache-2.0",
   "engines": {

@@ -9,6 +9,11 @@ The desktop edition and this extension offer the same tables, queries, item
 editors, Streams, schemas and deliberate AWS write confirmations. No Python, Node
 or Docker installation is required for AWS use. DynamoDB Local is optional.
 
+The console follows your VS Code theme, including light, dark and high-contrast
+themes, and your editor font settings. Theme changes apply immediately without
+discarding unsaved item drafts. JSON highlighting uses the theme's debug value
+colours; it does not reproduce custom TextMate token rules.
+
 Saved queries and schemas persist across restarts and upgrades. Use **Settings →
 Saved workspace** to export/import definitions from the browser or desktop app.
 Uninstalling the extension preserves its user-data folder. Use **Restart Console**

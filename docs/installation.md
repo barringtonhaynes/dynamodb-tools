@@ -28,10 +28,14 @@ before quitting because already-applied writes cannot be rolled back.
 ## Visual Studio Code
 
 Choose **Extensions → … → Install from VSIX…**, select
-`dynamodb-tools-0.2.0-darwin-arm64.vsix`, then run **DynamoDB Tools: Open Console**
+`dynamodb-tools-0.2.1-darwin-arm64.vsix`, then run **DynamoDB Tools: Open Console**
 from the Command Palette. The extension includes its own service and manages it
 without a terminal. **Restart Console** and **Stop Console** are also available.
 Closing the console stops the service. Use a trusted local workspace.
+
+Extension 0.2.1 follows your active VS Code colour theme and editor font settings,
+including both high-contrast variants. Switching themes preserves unsaved drafts
+and cursor selection. The standalone desktop remains version 0.2.0.
 
 The extension is a desktop, local extension, including when using Remote SSH or
 containers: it uses the credentials and endpoints on your local computer. Browser

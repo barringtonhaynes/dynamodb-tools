@@ -116,6 +116,9 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
           JSON.stringify(violations, null, 2),
         );
         assert.deepEqual(violations, []);
+        if (process.env.TEST_VSCODE_THEMES) {
+          await require("./vscode-themes.cjs").check({ webview, browser, root });
+        }
       } finally {
         webview.close();
       }

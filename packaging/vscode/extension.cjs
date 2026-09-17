@@ -55,6 +55,10 @@ async function open(context) {
         path.join(context.extensionPath, "static/index.html"),
         "utf8",
       );
+      html = html.replace(
+        "</head>",
+        '<link rel="stylesheet" href="/static/vscode-theme.css"></head>',
+      );
       html = html.replaceAll(
         /(?:src|href)="\/static\/([^"?]+)"/g,
         (match, file) =>

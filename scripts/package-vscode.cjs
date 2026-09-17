@@ -16,7 +16,7 @@ if (
   );
 }
 fs.mkdirSync(path.join(root, "dist"), { recursive: true });
-const version = require("../package.json").version;
+const version = require("../packaging/vscode/package.json").version;
 const result = spawnSync(
   process.execPath,
   [
