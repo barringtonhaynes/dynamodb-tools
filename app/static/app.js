@@ -912,6 +912,7 @@ async function renderSettings(generation) {
 }
 function openDialog(title, description, body, actions, context = {}) {
   dialogContext = context;
+  dialog.classList.toggle("item-dialog", context.kind === "save-item");
   document.getElementById("dialog-content").innerHTML =
     `<form id="dialog-form"><div class="dialog-heading"><div><h2 id="dialog-title">${esc(title)}</h2><p>${esc(description)}</p></div><button class="icon-button" type="button" data-action="close-dialog" aria-label="Close dialog">${icon("close")}</button></div><div class="dialog-body">${body}<p class="form-error" id="dialog-error" role="alert"></p></div><div class="dialog-actions"><button class="button" type="button" data-action="close-dialog">Cancel</button>${actions}</div></form>`;
   document
@@ -975,11 +976,221 @@ async function itemDialog(row = null) {
     row === null
       ? `A new record for ${state.table}.`
       : `Edit attributes in ${state.table}. Primary keys stay fixed.`,
-    `<div class="field"><label for="item-editor">DynamoDB JSON</label><textarea id="item-editor" rows="15" spellcheck="false">${esc(JSON.stringify(item, null, 2))}</textarea></div><p class="editor-help">Types are explicit: <code>{"S":"hello"}</code>, <code>{"N":"1.25"}</code>, <code>{"BOOL":true}</code>. Use <code>M</code> and <code>L</code> for maps and lists. Numbers stay exact; binary values use base64.</p>${row !== null ? `<div class="button-group">${button("Delete item", "delete-item", "trash", "danger-outline small")}${button("Duplicate", "duplicate-item", "copy", "small")}</div>` : ""}`,
+    `<div id="item-editor-views" class="item-editor-views" role="tablist" aria-label="Item editor views"></div><div class="item-editor-toolbar"><span id="item-editor-status" role="status"></span><div class="button-group"><button id="format-item" type="button" class="button small" data-action="format-item">${icon("code")}Format</button><button type="button" class="button small" data-action="validate-item">${icon("check")}Validate</button><button type="button" class="button small" data-action="copy-item">${icon("copy")}Copy JSON</button></div></div><div id="item-editor-panel" role="tabpanel"></div>${row !== null ? `<div class="button-group">${button("Delete item", "delete-item", "trash", "danger-outline small")}${button("Duplicate", "duplicate-item", "copy", "small")}</div>` : ""}`,
     `<button class="button primary" type="submit">${icon("check")}${row === null ? "Create item" : "Save changes"}</button>`,
-    { kind: "save-item", originalKey, table: state.table },
+    {
+      kind: "save-item",
+      originalKey,
+      table: state.table,
+      editor: { view: "ddb", item, ddb: JSON.stringify(item, null, 2) },
+    },
   );
+  renderItemEditor();
 }
+const itemTypes = {
+  S: "String",
+  N: "Number",
+  BOOL: "Boolean",
+  NULL: "Null",
+  M: "Map",
+  L: "List",
+  SS: "String set",
+  NS: "Number set",
+  B: "Binary",
+  BS: "Binary set",
+};
+function renderItemEditor() {
+  const editor = dialogContext.editor;
+  const views = [
+    ["ddb", "DynamoDB JSON", "code"],
+    ["json", "Standard JSON", "file"],
+    ["attributes", "Attributes", "table"],
+  ];
+  document.getElementById("item-editor-views").innerHTML = views
+    .map(
+      ([id, label, ico]) =>
+        `<button type="button" role="tab" id="editor-tab-${id}" aria-controls="item-editor-panel" aria-selected="${editor.view === id}" tabindex="${editor.view === id ? 0 : -1}" class="button ${editor.view === id ? "primary" : ""}" data-action="item-view" data-view="${id}">${icon(ico)}${label}</button>`,
+    )
+    .join("");
+  const panel = document.getElementById("item-editor-panel");
+  panel.setAttribute("aria-labelledby", "editor-tab-" + editor.view);
+  if (editor.view === "attributes") {
+    panel.innerHTML = `<div class="attribute-table"><div class="attribute-heading" aria-hidden="true"><span>Attribute</span><span>Type</span><span>Value</span><span></span></div><div id="attribute-rows"></div></div><button type="button" class="button small" data-action="add-attribute">${icon("plus")}Add attribute</button><p class="editor-help">Edit one attribute at a time. Maps and lists use nested DynamoDB JSON; sets use JSON arrays of strings. Binary values use base64.</p>`;
+    for (const [name, attribute] of Object.entries(editor.item))
+      appendAttributeRow(name, attribute);
+  } else {
+    const label = editor.view === "ddb" ? "DynamoDB JSON" : "Standard JSON";
+    panel.innerHTML = `<div class="field"><label for="item-editor">${label}</label><div class="json-editor"><pre id="editor-lines" aria-hidden="true">1</pre><textarea id="item-editor" rows="17" spellcheck="false" wrap="off" aria-describedby="item-editor-help"></textarea></div></div><p class="editor-help" id="item-editor-help">${editor.view === "ddb" ? 'Explicit types keep every value unambiguous. Numbers use strings, e.g. <code>{"N":"1.25"}</code>. Format tidies your JSON; Validate checks types without saving.' : "Edit ordinary JSON with exact numbers. Existing sets stay sets and binary values stay base64 at their current paths. New arrays become lists. Change special types in Attributes or DynamoDB JSON."}</p>${editor.view === "ddb" ? '<details class="type-guide"><summary>DynamoDB type reference</summary><p><code>S</code> string · <code>N</code> number as a string · <code>BOOL</code> true/false · <code>NULL</code> true</p><p><code>M</code> map of typed attributes · <code>L</code> array of typed attributes</p><p><code>SS / NS / BS</code> nonempty arrays of strings · <code>B</code> base64 string</p></details>' : ""}`;
+    const textarea = document.getElementById("item-editor");
+    textarea.value = editor[editor.view];
+    const updateLines = () => {
+      document.getElementById("editor-lines").textContent = Array.from(
+        { length: textarea.value.split("\n").length },
+        (_, i) => i + 1,
+      ).join("\n");
+    };
+    textarea.oninput = updateLines;
+    textarea.onscroll = () =>
+      (document.getElementById("editor-lines").scrollTop = textarea.scrollTop);
+    updateLines();
+  }
+  document
+    .getElementById("format-item")
+    .classList.toggle("hidden", editor.view === "attributes");
+  document.getElementById("item-editor-status").textContent =
+    `${Object.keys(editor.item).length} attributes · Changes are saved only when you submit.`;
+}
+let attributeRowId = 0;
+function appendAttributeRow(name = "", attribute = { S: "" }) {
+  const [type, value] = Object.entries(attribute)[0];
+  const id = ++attributeRowId;
+  const locked = Object.hasOwn(dialogContext.originalKey || {}, name);
+  const row = document.createElement("div");
+  row.className = "attribute-row";
+  row.innerHTML = `<div class="field"><label class="attribute-mobile-label" for="attr-name-${id}">Attribute</label><input id="attr-name-${id}" class="attribute-name" aria-label="Attribute name ${id}" placeholder="Attribute name" value="${esc(name)}" ${locked ? "readonly" : ""}>${locked ? '<span class="attribute-key">Primary key · fixed</span>' : ""}</div><div class="field"><label class="attribute-mobile-label" for="attr-type-${id}">Type</label><select id="attr-type-${id}" class="attribute-type" aria-label="Type for ${esc(name || "new attribute")}" ${locked ? "disabled" : ""}>${Object.entries(
+    itemTypes,
+  )
+    .map(
+      ([key, label]) =>
+        `<option value="${key}" ${key === type ? "selected" : ""}>${esc(label)} (${key})</option>`,
+    )
+    .join(
+      "",
+    )}</select></div><div class="field attribute-value-field"></div><button type="button" class="icon-button" data-action="remove-attribute" aria-label="Remove ${esc(name || "attribute")}" ${locked ? "disabled" : ""}>${icon("trash")}</button>`;
+  const renderValue = (kind, data) => {
+    const field = row.querySelector(".attribute-value-field");
+    const label = `Value for ${name || "new attribute"}`;
+    const common = `id="attr-value-${id}" class="attribute-value" aria-label="${esc(label)}"`;
+    field.innerHTML =
+      `<label class="attribute-mobile-label" for="attr-value-${id}">Value</label>` +
+      (kind === "BOOL"
+        ? `<select ${common}><option value="true" ${data === true ? "selected" : ""}>true</option><option value="false" ${data === false ? "selected" : ""}>false</option></select>`
+        : kind === "NULL"
+          ? `<input ${common} value="null" readonly>`
+          : `<textarea ${common} rows="${["M", "L"].includes(kind) ? 4 : 2}" spellcheck="false" ${locked ? "readonly" : ""}></textarea>`);
+    if (!["BOOL", "NULL"].includes(kind))
+      field.querySelector(".attribute-value").value = ["S", "N", "B"].includes(
+        kind,
+      )
+        ? data
+        : JSON.stringify(data, null, 2);
+  };
+  renderValue(type, value);
+  row.querySelector(".attribute-type").onchange = (event) => {
+    const next = event.target.value;
+    const current = row.querySelector(".attribute-value").value;
+    const defaults = {
+      S: current,
+      N: /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(current) ? current : "0",
+      B: "",
+      BOOL: false,
+      NULL: true,
+      M: {},
+      L: [],
+      SS: ["value"],
+      NS: ["0"],
+      BS: ["YQ=="],
+    };
+    renderValue(next, defaults[next]);
+  };
+  document.getElementById("attribute-rows").append(row);
+  return row;
+}
+function itemEditorText() {
+  if (dialogContext.editor.view !== "attributes")
+    return document.getElementById("item-editor").value;
+  const entries = [];
+  const names = new Set();
+  for (const row of document.querySelectorAll(".attribute-row")) {
+    const name = row.querySelector(".attribute-name").value;
+    if (!name)
+      throw new Error(
+        "Enter a name for every attribute, or remove the empty row.",
+      );
+    if (names.has(name)) throw new Error(`Duplicate attribute name: ${name}`);
+    names.add(name);
+    const type = row.querySelector(".attribute-type").value;
+    const raw = row.querySelector(".attribute-value").value;
+    // Leave nested JSON text intact for server validation, including duplicate keys.
+    const value = ["S", "N", "B"].includes(type)
+      ? JSON.stringify(raw)
+      : type === "NULL"
+        ? "true"
+        : raw;
+    entries.push(
+      `${JSON.stringify(name)}: {${JSON.stringify(type)}: ${value}}`,
+    );
+  }
+  return "{" + entries.join(",") + "}";
+}
+async function syncItemEditor() {
+  const context = dialogContext;
+  if (context.editor.busy)
+    throw new Error("Please wait for validation to finish.");
+  const text = itemEditorText();
+  context.editor.busy = true;
+  const controls = [
+    ...dialog.querySelectorAll("input,textarea,select,button"),
+  ].map((node) => [node, node.disabled]);
+  controls.forEach(([node]) => (node.disabled = true));
+  try {
+    const result = await send("/api/items/convert", "POST", {
+      text,
+      view: context.editor.view === "json" ? "json" : "ddb",
+      previous: context.editor.item,
+    });
+    if (dialogContext !== context || !dialog.open)
+      throw new Error("The item editor was closed.");
+    // Both raw and structured views obey the same immutable-key rule.
+    if (
+      context.originalKey &&
+      Object.entries(context.originalKey).some(
+        ([key, value]) =>
+          JSON.stringify(result.item[key]) !== JSON.stringify(value),
+      )
+    )
+      throw new Error(
+        "Primary keys cannot be changed. Use Duplicate to create an item with new keys.",
+      );
+    Object.assign(context.editor, result);
+    document.getElementById("dialog-error").textContent = "";
+    return result.item;
+  } finally {
+    context.editor.busy = false;
+    controls.forEach(([node, disabled]) => (node.disabled = disabled));
+  }
+}
+async function itemEditorAction(name, target) {
+  try {
+    if (name === "remove-attribute") {
+      target.closest(".attribute-row").remove();
+      return;
+    }
+    if (name === "add-attribute") {
+      appendAttributeRow().querySelector("input").focus();
+      return;
+    }
+    await syncItemEditor();
+    if (name === "item-view") {
+      dialogContext.editor.view = target.dataset.view;
+      renderItemEditor();
+      document.getElementById("editor-tab-" + target.dataset.view).focus();
+    } else if (name === "format-item") renderItemEditor();
+    else if (name === "validate-item")
+      document.getElementById("item-editor-status").textContent =
+        "Valid DynamoDB item · Nothing saved yet.";
+    else if (name === "copy-item")
+      await copyText(
+        dialogContext.editor.view === "json"
+          ? dialogContext.editor.json
+          : dialogContext.editor.ddb,
+      );
+  } catch (error) {
+    if (dialog.open)
+      document.getElementById("dialog-error").textContent = error.message;
+  }
+}
+
 function confirmTable(kind) {
   const purge = kind === "purge";
   openDialog(
@@ -1060,7 +1271,7 @@ async function submitDialog(event) {
         { confirmation },
       );
     } else if (context.kind === "save-item") {
-      const item = JSON.parse(document.getElementById("item-editor").value);
+      const item = await syncItemEditor();
       await send(tablePath(context.table) + "/items", "PUT", {
         item,
         originalKey: context.originalKey,
@@ -1193,7 +1404,18 @@ async function action(event) {
   if (!target || target.disabled) return;
   const name = target.dataset.action;
   try {
-    if (name === "save-query") saveQueryDialog();
+    if (
+      [
+        "item-view",
+        "format-item",
+        "validate-item",
+        "copy-item",
+        "add-attribute",
+        "remove-attribute",
+      ].includes(name)
+    )
+      await itemEditorAction(name, target);
+    else if (name === "save-query") saveQueryDialog();
     else if (name === "manage-query") saveQueryDialog(true);
     else if (name === "load-query") await loadSavedQuery();
     else if (name === "delete-saved-query") {
@@ -1284,12 +1506,24 @@ async function action(event) {
       target.remove();
       document.querySelector("#dialog-form button[type=submit]").innerHTML =
         icon("plus") + "Create duplicate";
-      document.getElementById("item-editor").focus();
+      if (dialogContext.editor.view === "attributes") {
+        await syncItemEditor();
+        renderItemEditor();
+      }
+      document
+        .querySelector("#item-editor-panel input, #item-editor-panel textarea")
+        ?.focus();
     }
   } catch (error) {
     toast(error.message, true);
   }
 }
+dialog.addEventListener("input", () => {
+  if (dialogContext?.kind === "save-item") {
+    document.getElementById("item-editor-status").textContent =
+      "Draft edited · Validate or save to check your changes.";
+  }
+});
 document.addEventListener("click", action);
 document
   .querySelectorAll("[data-icon]")
@@ -1314,7 +1548,11 @@ document.addEventListener("keydown", (event) => {
     ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
   ) {
     event.preventDefault();
-    const tabs = [...document.querySelectorAll("[role=tab]")];
+    const tabs = [
+      ...document.activeElement
+        .closest('[role="tablist"]')
+        .querySelectorAll("[role=tab]"),
+    ];
     const i = tabs.indexOf(document.activeElement);
     const next =
       event.key === "Home"

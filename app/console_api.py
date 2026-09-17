@@ -11,6 +11,7 @@ from .config import settings
 from .console_service import ConsoleService
 from .data_codec import item_from_wire, parse_import, to_wire
 from .data_service import DataService
+from .editor_codec import convert_item
 from .operations import operations
 from .startup_tasks import get_startup_tasks_status
 from .table_service import TableService
@@ -93,6 +94,17 @@ class KeyRequest(BaseModel):
 class ImportRequest(BaseModel):
     filename: str = Field(min_length=1, max_length=255)
     content: str = Field(max_length=MAX_IMPORT)
+
+
+class EditorRequest(BaseModel):
+    text: str = Field(max_length=2 * 1024 * 1024)
+    view: Literal["ddb", "json"] = "ddb"
+    previous: dict | None = None
+
+
+@router.post("/items/convert")
+def convert_editor_item(request: EditorRequest):
+    return convert_item(request.text, request.view, request.previous)
 
 
 class MountedRequest(BaseModel):

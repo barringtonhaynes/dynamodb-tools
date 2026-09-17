@@ -32,7 +32,7 @@ CSS, JavaScript, and icons without external fonts, CDNs, or analytics.
 | Tables | Find tables by name. Create one with a guided key form or a full DynamoDB schema. |
 | Item explorer | Scan or query primary and secondary indexes, use sort-key comparisons or ranges, navigate pages, and filter the current page. |
 | Saved queries | Save named scans and queries, reload them from the first page, rename or update them, and delete saved definitions. |
-| Item editor | View, create, edit, duplicate, or delete items using typed DynamoDB JSON. Creating an item refuses to overwrite an existing key. |
+| Item editor | Switch between DynamoDB JSON, standard JSON, and an editable attribute table. Format and validate JSON, inspect type help, and create, edit, duplicate, or delete items. Creating an item refuses to overwrite an existing key. |
 | Imports | Drag in CSV, plain JSON, or DynamoDB JSON; validate the entire file and preview records before importing. Load files from mounted folders too. |
 | Exports | Download a complete paginated table scan as DynamoDB JSON, preserving numbers, sets, nested values, and base64 binary data. |
 | Schema | Inspect keys, indexes, capacity, and the complete table definition. Apply `UpdateTable` JSON to change capacity or manage global indexes. |
@@ -46,6 +46,15 @@ Saved queries persist in browser storage, scoped to the console origin, DynamoDB
 endpoint, region, and table. They retain the index, exact key values, sort order,
 page size, and page filter. They are not shared between browsers; clearing site
 data removes them. Loading checks that the saved index and key schema still exist.
+
+Item editor views share one draft. Switching or formatting validates the current
+view first; invalid input remains available to fix. Standard JSON numbers are
+converted on the server as exact decimals, avoiding browser rounding. Existing
+binary values and sets retain their types at the same attribute paths (including
+list positions); new strings and arrays become strings and lists. To change a
+binary/set type or move one to a new path, use DynamoDB JSON or Attributes.
+Primary keys are fixed during editing; use Duplicate to create new keys. Changes
+are written only when you choose Create item or Save changes.
 
 Long-running table changes and imports use a bounded, sequential background queue.
 
@@ -183,6 +192,7 @@ See **`/docs`** for the full request schemas and try-it controls.
 | `DELETE /api/tables/{name}` | Queue deletion; requires `confirmation` equal to the table name |
 | `POST /api/tables/{name}/purge` | Queue purge; requires the same confirmation |
 | `POST /api/tables/{name}/items/search` | Scan/query a page with an opaque continuation cursor |
+| `POST /api/items/convert` | Validate/format editor JSON and convert views without writing data (`text`, `view`, optional typed `previous`) |
 | `POST /api/tables/{name}/items/get` | Fetch an item by typed `key` |
 | `PUT /api/tables/{name}/items` | Create/edit a typed `item`; optionally provide `originalKey` |
 | `DELETE /api/tables/{name}/items` | Delete by typed `key` |

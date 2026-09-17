@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
+import { checkItemEditor } from "./item-editor.mjs";
 
 const base = process.env.CONSOLE_TEST_URL;
 assert(
@@ -106,14 +107,22 @@ try {
     balance: { N: "12345678901234567890.123456789" },
   };
   await page
-    .getByLabel("DynamoDB JSON", { exact: true })
+    .getByRole("textbox", { name: "DynamoDB JSON", exact: true })
     .fill(JSON.stringify(item, null, 2));
   await page.getByRole("button", { name: "Create item", exact: true }).click();
   await page.getByRole("cell", { name: "Ada Lovelace", exact: true }).waitFor();
   await page.getByRole("button", { name: "Open item person#ada" }).click();
+  await checkItemEditor({
+    page,
+    item,
+    accessibility,
+    noPageOverflow,
+    jsonResponse,
+    table: name,
+  });
   item.name = { S: "Ada Byron Lovelace" };
   await page
-    .getByLabel("DynamoDB JSON", { exact: true })
+    .getByRole("textbox", { name: "DynamoDB JSON", exact: true })
     .fill(JSON.stringify(item, null, 2));
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await page
