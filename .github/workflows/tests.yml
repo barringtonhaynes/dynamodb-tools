@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+      - run: pre-commit run --all-files
+        if: matrix.python-version == '3.11'
+
+  browser:
+    runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8000:8000
+    env:
+      AWS_ACCESS_KEY_ID: localaccesskey
+      AWS_SECRET_ACCESS_KEY: localsecretkey
+      AWS_DEFAULT_REGION: us-east-1
+      DYNAMODB_ENDPOINT_URL: http://127.0.0.1:8000
+      DATA_PATH: ./examples/basic
+      CONSOLE_TEST_URL: http://127.0.0.1:18200
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: python -m pip install -r requirements.txt
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      - name: Start console and run browser checks
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 18200 > /tmp/console.log 2>&1 &
+          console_pid=$!
+          trap 'kill "$console_pid" || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18200/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          npm run test:browser
+          node tests/browser/query-planner.mjs
+          node tests/browser/copy-data.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-validation
+          path: |
+            test-results/
+            /tmp/console.log

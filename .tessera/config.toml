@@ -1,0 +1,96 @@
+# .tessera/config.toml — Tessera project config (RFC 0021).
+# Composed by `tessera compose` (design: composability-control).
+# This file is COMMITTED and edited DIRECTLY — it is a separate write-path
+# from the board: it does NOT go through MCP mediation or the discipline hooks.
+
+tenant = "barringtonhaynes"
+project = "dynamodb-tools"
+remote = ""
+
+[agent-memory]
+enabled = true
+
+[architecture]
+enabled = true
+
+[flow-steward]
+enabled = true
+
+[observability]
+enabled = true
+
+[patterns]
+enabled = true
+
+[roadmap]
+enabled = true
+
+[roster]
+enabled = true
+
+[safety]
+enabled = true
+
+[workspace]
+enabled = true
+
+[hooks]
+"H-atomic" = "fail-closed"
+"H-design-first" = "fail-closed"
+"H-no-edit-done" = "fail-closed"
+"H-metrics-on-done" = "fail-open"
+"H-children-done" = "fail-closed"
+"H-card-exists" = "fail-closed"
+"H-id-unique" = "fail-closed"
+"H-schema-current" = "fail-closed"
+"H-dod" = "fail-closed"
+"H-prompt" = "fail-closed"
+"H-design-resolvable" = "fail-open"
+"H-card-lint" = "fail-closed"
+"H-blocked" = "fail-closed"
+"H-blocks-others" = "fail-open"
+"H-role-policy" = "fail-closed"
+"H-memory-importance" = "fail-closed"
+"H-wip-cap" = "fail-closed"
+"H-single-active" = "fail-closed"
+"H-triage" = "fail-closed"
+
+[document_flow]
+require_prompt = true
+check_design_ref = true
+
+[card_lint]
+enabled = true
+
+[definition_of_done]
+default = [
+  { id = "design", text = "Record the design or an explicitly retrospective implementation note", requires = "design_ref" },
+  { id = "tests", text = "Attach relevant verified test results and their scope", evidence = "tests" },
+  { id = "metrics", text = "Record measured outcomes, limitations, and delivery provenance", requires = "metrics" },
+]
+
+[definition_of_done.evidence_map]
+usability = "tests"
+supportability = "tests"
+constraint = "tests"
+
+[[principles]]
+name = "Protect real AWS data"
+statement = "AWS is read-only by default; writes require deliberate server-enforced confirmation."
+in_practice = "Keep account and region visible and disable automatic AWS startup mutations."
+
+[[principles]]
+name = "Use existing credentials"
+statement = "Use standard AWS credential providers; persist only non-secret connection preferences."
+
+[[principles]]
+name = "Preserve DynamoDB data"
+statement = "Editing and conversion preserve exact numbers and DynamoDB-specific types."
+
+[[principles]]
+name = "Make evidence and limits visible"
+statement = "Distinguish estimates, bounded samples, permission restrictions and simulated AWS checks from verified live results."
+
+[[principles]]
+name = "Useful and accessible locally"
+statement = "Keep the interface clear, compact and keyboard-accessible while developing standalone and VS Code installation paths."

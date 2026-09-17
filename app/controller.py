@@ -1,6 +1,7 @@
 import logging
 
-from fastapi import Path
+from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
+from fastapi import HTTPException, Path
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
@@ -11,64 +12,74 @@ from .table_service import TableService
 from .table_stats import table_stats
 
 logger = logging.getLogger(__name__)
-
 data_service = DataService()
-table_service = TableService()
-
 router = APIRouter()
 
 
 @router.get("/health")
-async def health() -> JSONResponse:
-    """
-    Returns a JSONResponse object containing the health status of the application.
-    This includes the status of startup tasks, the stats of the tables, and the application settings.
-    """
-    health_status = {
-        "startupTasksStatus": get_startup_tasks_status(),
-        "stats": table_stats.dict(),
-        "settings": settings.dict(),
-    }
-
-    return JSONResponse(content=health_status)
+def health() -> JSONResponse:
+    """Return completed startup status, file counters, and application settings."""
+    return JSONResponse(
+        content={
+            "startupTasksStatus": get_startup_tasks_status(),
+            "stats": table_stats.model_dump(),
+            "settings": settings.effective_settings(),
+        }
+    )
 
 
 @router.get("/tables", response_model=list[str])
-async def list_tables() -> list[str]:
-    """
-    Returns a list of table names in the database.
-    """
-    tables = table_service.list_tables()
-    return tables
+def list_tables() -> list[str]:
+    """List all DynamoDB tables."""
+    return TableService().list_tables()
 
 
 @router.get("/tables/{table_name}/data", response_model=list[str])
-async def get_data_files(
-    table_name: str = Path(..., description="The name of the table")
+def get_data_files(
+    table_name: str = Path(
+        ..., pattern=r"^[a-zA-Z0-9_.-]{3,255}$", description="The name of the table"
+    )
 ) -> list[str]:
-    """
-    Returns a list of data files for a given table name.
-    """
-    data_files = [
-        file_name for file_name in data_service.get_data_files_for_table(table_name)
-    ]
-    return data_files
+    """List supported load files for the table in filename order."""
+    return list(data_service.get_data_files_for_table(table_name))
 
 
 @router.post("/tables/{table_name}/data/{data_file}")
-async def load_data_file(
-    table_name: str = Path(..., description="The name of the table"),
+def load_data_file(
+    table_name: str = Path(
+        ..., pattern=r"^[a-zA-Z0-9_.-]{3,255}$", description="The name of the table"
+    ),
     data_file: str = Path(..., description="The name of the data file to load"),
 ) -> JSONResponse:
-    """
-    Loads a data file into the specified table.
-    """
-    data_file_path = f"{settings.data_path}/load/{table_name}/{data_file}"
-    table_service.seed_table(table_name, data_file_path)
-
-    response = {
-        "status": "success",
-        "message": f"Data file {data_file} loaded into table {table_name}.",
-    }
-
-    return JSONResponse(content=response)
+    """Import a mounted CSV or JSON file, reporting failures as HTTP errors."""
+    try:
+        data_file_path = data_service.get_data_file_path(table_name, data_file)
+        TableService().seed_table(table_name, str(data_file_path))
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="Data file not found") from error
+    except (ValueError, TypeError, KeyError, ParamValidationError) as error:
+        raise HTTPException(
+            status_code=400, detail="Invalid data file or path"
+        ) from error
+    except ClientError as error:
+        code = error.response["Error"]["Code"]
+        status = {"ResourceNotFoundException": 404, "ValidationException": 400}.get(
+            code, 502
+        )
+        logger.exception("DynamoDB data load failed")
+        raise HTTPException(
+            status_code=status, detail=f"DynamoDB load failed: {code}"
+        ) from error
+    except BotoCoreError as error:
+        logger.exception("DynamoDB is unavailable")
+        raise HTTPException(
+            status_code=503, detail="DynamoDB is unavailable"
+        ) from error
+    return JSONResponse(
+        content={
+            "status": "success",
+            "message": f"Data file {data_file} loaded into table {table_name}.",
+        }
+    )

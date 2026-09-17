@@ -22,8 +22,8 @@ services:
     environment:
       - DYNAMO_ENDPOINT=http://dynamodb:8000
       - AWS_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=MY_ACCESS_KEY_ID
-      - AWS_SECRET_ACCESS_KEY=MY_SECRET_ACCESS_KEY
+      - AWS_ACCESS_KEY_ID=localaccesskey
+      - AWS_SECRET_ACCESS_KEY=localsecretkey
     depends_on:
       - dynamodb
 

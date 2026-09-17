@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from enum import Enum
 
@@ -8,7 +9,6 @@ from .table_service import TableService
 logger = logging.getLogger(__name__)
 
 data_service = DataService()
-table_service = TableService()
 
 
 class StartupTaskStatus(str, Enum):
@@ -35,7 +35,16 @@ def set_startup_tasks_status(status: StartupTaskStatus) -> None:
     startup_tasks_status = status
 
 
-async def startup_tasks() -> None:
+def _run_startup_tasks() -> None:
+    if (
+        settings.dynamodb_mode == "aws"
+        or settings.is_read_only
+        or settings.connection_saved
+    ):
+        logger.info("Startup mutations disabled for AWS/read-only connections")
+        set_startup_tasks_status(StartupTaskStatus.FINISHED)
+        return
+    table_service = TableService()
     logger.info("Starting startup tasks")
     set_startup_tasks_status(StartupTaskStatus.STARTED)
 
@@ -69,3 +78,12 @@ async def startup_tasks() -> None:
 
     set_startup_tasks_status(StartupTaskStatus.FINISHED)
     logger.info("Finished startup tasks")
+
+
+async def startup_tasks() -> None:
+    try:
+        await asyncio.to_thread(_run_startup_tasks)
+    except Exception:
+        set_startup_tasks_status(StartupTaskStatus.ERROR)
+        logger.exception("Startup tasks failed")
+        raise

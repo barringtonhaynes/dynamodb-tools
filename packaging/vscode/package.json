@@ -1,0 +1,113 @@
+{
+  "name": "dynamodb-tools",
+  "displayName": "DynamoDB Tools",
+  "description": "A local DynamoDB workspace with safe AWS access, a bundled service, queries, Streams and lossless item editing.",
+  "version": "0.5.0",
+  "publisher": "barringtonhaynes",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/barringtonhaynes/dynamodb-tools"
+  },
+  "main": "./extension.cjs",
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": {
+      "supported": false
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "dynamodbTools.open",
+        "title": "DynamoDB Tools: Open Console",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "dynamodbTools.restart",
+        "title": "DynamoDB Tools: Restart Console"
+      },
+      {
+        "command": "dynamodbTools.stop",
+        "title": "DynamoDB Tools: Stop Console"
+      },
+      {
+        "command": "dynamodbTools.tables",
+        "title": "DynamoDB Tools: Browse Tables",
+        "icon": "$(table)"
+      },
+      {
+        "command": "dynamodbTools.settings",
+        "title": "DynamoDB Tools: Connection Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "dynamodbTools.activity",
+        "title": "DynamoDB Tools: View Activity",
+        "icon": "$(history)"
+      },
+      {
+        "command": "dynamodbTools.refreshExplorer",
+        "title": "DynamoDB Tools: Refresh Explorer",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "dynamodbTools.favourite",
+        "title": "Toggle Favourite Table",
+        "icon": "$(star-empty)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dynamodbTools",
+          "title": "DynamoDB Tools",
+          "icon": "activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "dynamodbTools": [
+        {
+          "id": "dynamodbTools.workspace",
+          "name": "Workspace",
+          "icon": "activity-icon.svg",
+          "contextualTitle": "DynamoDB Tools"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "dynamodbTools.refreshExplorer",
+          "when": "view == dynamodbTools.workspace",
+          "group": "navigation"
+        },
+        {
+          "command": "dynamodbTools.open",
+          "when": "view == dynamodbTools.workspace",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dynamodbTools.favourite",
+          "when": "view == dynamodbTools.workspace && viewItem =~ /^(table|favouriteTable)$/",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "icon": "icon.png"
+}

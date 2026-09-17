@@ -1,0 +1,31 @@
+appId: dev.barringtonhaynes.dynamodb-tools
+productName: DynamoDB Tools
+artifactName: dynamodb-tools-${version}-${os}-${arch}.${ext}
+directories:
+  output: dist/desktop
+files:
+  - packaging/desktop/main.cjs
+  - packaging/shared/service.cjs
+  - package.json
+extraResources:
+  - from: build/runtime/service
+    to: service
+beforePack: ./packaging/desktop/validate.cjs
+asar: true
+icon: packaging/desktop/icon.png
+mac:
+  identity: "-"
+  hardenedRuntime: false
+  category: public.app-category.developer-tools
+  target: [zip, dmg]
+win:
+  target: [nsis]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+linux:
+  target: [AppImage, deb]
+  category: Development
+  maintainer: Barrington Haynes <barrington.haynes@ontik.io>
+publish: null
