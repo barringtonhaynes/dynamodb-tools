@@ -1,0 +1,14 @@
+{
+  "name": "dynamodb-tools-console-checks",
+  "private": true,
+  "scripts": {
+    "check": "node --check app/static/app.js && prettier --check app/static tests/browser",
+    "format": "prettier --write app/static tests/browser",
+    "test:browser": "node tests/browser/console.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "playwright": "1.63.0",
+    "prettier": "3.6.2"
+  }
+}

@@ -4,3 +4,7 @@ __pycache__
 .pytest_cache
 .env
 tests
+node_modules
+test-results
+**/__pycache__
+**/*.pyc

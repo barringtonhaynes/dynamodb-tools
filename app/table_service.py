@@ -10,6 +10,7 @@ from boto3.dynamodb.types import TypeDeserializer
 from botocore.exceptions import ClientError
 
 from .config import settings
+from .data_codec import parse_import
 from .table_stats import table_stats
 
 logger = logging.getLogger(__name__)
@@ -174,9 +175,11 @@ class TableService:
 
     def seed_table_from_dynamodb_json(self, table_name: str, data_file: str) -> None:
         deserializer = TypeDeserializer()
+        with open(data_file, encoding="utf-8") as file:
+            wire_items = parse_import(data_file, file.read())
         items = [
             {key: deserializer.deserialize(value) for key, value in item.items()}
-            for item in self._read_json(data_file)
+            for item in wire_items
         ]
         self._write_items(table_name, items)
 
