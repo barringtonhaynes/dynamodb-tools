@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import aws_safety, connection
+from . import aws_safety, connection, host_runtime
 from .config import settings
 from .connection import READ_ONLY_MESSAGE, read_request
 from .connection_api import router as connection_router
@@ -15,6 +15,7 @@ from .console_api import router as console_router
 from .controller import router
 from .operations import operations
 from .startup_tasks import startup_tasks
+from .user_state import router as user_state_router
 from .workspace_api import router as workspace_router
 
 logging.basicConfig(level=settings.log_level)
@@ -35,6 +36,7 @@ app.include_router(router)
 app.include_router(connection_router)
 app.include_router(console_router)
 app.include_router(workspace_router)
+app.include_router(user_state_router)
 static_directory = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_directory), name="static")
 
@@ -46,6 +48,9 @@ def console():
 
 @app.middleware("http")
 async def console_security(request: Request, call_next):
+    denied = host_runtime.protect(request)
+    if denied is not None:
+        return denied
     if request.method in {
         "POST",
         "PUT",

@@ -144,15 +144,8 @@ function bindSelection() {
   };
   boxes.forEach((el) => (el.onchange = update));
 }
-function downloadJSON(value, filename) {
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
-  );
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+async function downloadJSON(value, filename) {
+  await saveDownload(JSON.stringify(value, null, 2), filename);
 }
 let streamState = null;
 async function renderStreams() {
@@ -447,16 +440,19 @@ async function workspaceAction(name, target) {
     const rows = [...document.querySelectorAll(".item-selection")].map(
       (el) => state.items[Number(el.dataset.row)],
     );
-    downloadJSON(rows, state.table + ".page.dynamodb.json");
+    await downloadJSON(rows, state.table + ".page.dynamodb.json");
     toast("Visible page exported with its displayed attributes.");
   } else if (name === "refresh-streams") await renderStreams();
   else if (name === "stream-next") await readStream(true);
   else if (name === "stream-export")
-    downloadJSON(streamState.records, state.table + ".stream.json");
+    await downloadJSON(streamState.records, state.table + ".stream.json");
   else if (name === "partiql-next")
     await runPartiQL({ ...partiqlState.request, cursor: partiqlState.cursor });
   else if (name === "partiql-export")
-    downloadJSON(partiqlState.items, state.table + ".partiql.dynamodb.json");
+    await downloadJSON(
+      partiqlState.items,
+      state.table + ".partiql.dynamodb.json",
+    );
   else return false;
   return true;
 }

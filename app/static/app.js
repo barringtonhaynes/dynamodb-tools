@@ -81,7 +81,7 @@ let dialogContext = null;
 let refreshPromise = null;
 
 async function api(url, options = {}) {
-  const response = await fetch(url, {
+  const response = await consoleFetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -564,7 +564,7 @@ function savedQueryKey() {
 }
 function readSavedQueries(key = savedQueryKey()) {
   try {
-    const queries = JSON.parse(localStorage.getItem(key) || "[]");
+    const queries = JSON.parse(workspaceStorage.getItem(key) || "[]");
     if (
       !Array.isArray(queries) ||
       queries.some(
@@ -600,10 +600,11 @@ function validSavedAttribute(value) {
     typeof Object.values(value)[0] === "string"
   );
 }
-function writeSavedQueries(key, queries) {
+async function writeSavedQueries(key, queries) {
   try {
-    localStorage.setItem(key, JSON.stringify(queries));
-  } catch {
+    await workspaceStorage.setItem(key, JSON.stringify(queries));
+  } catch (error) {
+    if (workspaceStorage.installed) throw error;
     throw new Error(
       "Could not save changes. Browser storage may be full or disabled. Your previous saved queries are unchanged.",
     );
@@ -640,7 +641,7 @@ function renderSavedQueries() {
     );
     if (!queries.some((q) => q.id === state.savedQueryId))
       state.savedQueryId = "";
-    bar.innerHTML = `<div class="field saved-query-picker"><label for="saved-query">${icon("bookmark")}Saved queries <span class="count-badge">${queries.length}</span></label><select id="saved-query"><option value="">${queries.length ? "Choose a saved query…" : "No saved queries yet"}</option>${queries.map((q) => `<option value="${esc(q.id)}">${esc(q.name)}</option>`).join("")}</select></div><div class="button-group">${button("Load query", "load-query", "play", "small")}${button("Manage", "manage-query", "edit", "small")}${button("Save query", "save-query", "bookmark", "small")}</div><p class="saved-query-note">Saved in this browser for this connection and table.</p>`;
+    bar.innerHTML = `<div class="field saved-query-picker"><label for="saved-query">${icon("bookmark")}Saved queries <span class="count-badge">${queries.length}</span></label><select id="saved-query"><option value="">${queries.length ? "Choose a saved query…" : "No saved queries yet"}</option>${queries.map((q) => `<option value="${esc(q.id)}">${esc(q.name)}</option>`).join("")}</select></div><div class="button-group">${button("Load query", "load-query", "play", "small")}${button("Manage", "manage-query", "edit", "small")}${button("Save query", "save-query", "bookmark", "small")}</div><p class="saved-query-note">Saved ${workspaceStorage.installed ? "on this computer" : "in this browser"} for this connection and table.</p>`;
     const select = document.getElementById("saved-query");
     select.value = state.savedQueryId;
     const updateButtons = () => {
@@ -697,7 +698,7 @@ async function loadSavedQuery() {
   await loadItems();
   document.getElementById("query-mode")?.focus();
 }
-function submitSavedQuery(context) {
+async function submitSavedQuery(context) {
   const queries = readSavedQueries(context.key);
   const position = queries.findIndex((q) => q.id === context.saved?.id);
   if (context.saved && position < 0)
@@ -706,7 +707,7 @@ function submitSavedQuery(context) {
     );
   if (context.kind === "delete-saved-query") {
     queries.splice(position, 1);
-    writeSavedQueries(context.key, queries);
+    await writeSavedQueries(context.key, queries);
     state.savedQueryId = "";
   } else {
     const name = document.getElementById("saved-query-name").value.trim();
@@ -735,7 +736,7 @@ function submitSavedQuery(context) {
     };
     if (position < 0) queries.push(saved);
     else queries[position] = saved;
-    writeSavedQueries(context.key, queries);
+    await writeSavedQueries(context.key, queries);
     state.savedQueryId = saved.id;
   }
   dialog.close();
@@ -743,7 +744,7 @@ function submitSavedQuery(context) {
   toast(
     context.kind === "delete-saved-query"
       ? "Saved query deleted."
-      : "Query saved in this browser.",
+      : "Query saved for this connection and table.",
   );
 }
 window.addEventListener("storage", (event) => {
@@ -986,6 +987,7 @@ async function renderSettings(generation) {
       .join(
         "",
       )}<p class="info-note">${s.dynamodb_mode === "aws" || s.read_only || s.connection_saved ? "Startup mutations are disabled for AWS, read-only, and saved connections, regardless of startup flags." : "Tasks run in this order before the workspace opens. These indicators show your configuration; they are not switches."}</p></div></section></div><div class="note-card">${icon("code")}<div><h3>Your workspace, in your workflow.</h3><p>Use the built-in <a href="/docs" target="_blank" rel="noopener" style="color:var(--purple)">API reference</a> to automate the same actions. This console is intended for trusted local development environments. Keep it bound to localhost.</p></div></div>`;
+  renderWorkspaceTransfer();
   await renderConnectionForm(generation);
 }
 function openDialog(title, description, body, actions, context = {}) {
@@ -1324,7 +1326,7 @@ async function submitDialog(event) {
   try {
     if (await submitWorkspaceDialog(context)) return;
     if (["save-query", "delete-saved-query"].includes(context.kind)) {
-      submitSavedQuery(context);
+      await submitSavedQuery(context);
       return;
     }
     let operation;
@@ -1483,23 +1485,20 @@ async function refreshOperations() {
 async function exportTable() {
   const name = state.table;
   toast("Preparing your DynamoDB JSON export…");
-  const response = await fetch(tablePath(name) + "/export");
+  const response = await consoleFetch(tablePath(name) + "/export");
   if (!response.ok) {
     const body = await response.json();
     throw new Error(body.detail || "Export failed");
   }
-  const blob = await response.blob(),
-    url = URL.createObjectURL(blob),
-    link = document.createElement("a");
-  link.href = url;
-  link.download = name + ".dynamodb.json";
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  await saveDownload(await response.text(), name + ".dynamodb.json");
   toast("Export downloaded. It can be imported without losing types.");
   await refreshOperations();
 }
 async function copyText(text) {
-  if (navigator.clipboard?.writeText) {
+  if (window.dynamoHost) {
+    await window.dynamoHost.copy(text);
+    toast("JSON copied to clipboard.");
+  } else if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
     toast("JSON copied to clipboard.");
   } else {
@@ -1699,4 +1698,6 @@ window.addEventListener("online", () => refreshOverview(false));
 setInterval(() => {
   if (!document.hidden) refreshOperations();
 }, 2500);
-navigate();
+initializeLocalWorkspace()
+  .then(() => navigate())
+  .catch(errorPage);

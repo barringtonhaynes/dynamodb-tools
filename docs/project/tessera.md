@@ -12,7 +12,8 @@ Flow-steward and workspace refresh are on-demand; enabling them does not start
 background jobs. Patterns are enabled for discovery but none have been adopted.
 No historical token counts or costs are invented.
 
-T1 is the confirmed standalone-app and VS Code-extension follow-up. T2–T11 are
+T1 implements the standalone app and VS Code extension; see
+[the distribution design](../designs/0002-installable-distributions.md). T2–T11 are
 retrospective records of implemented, tested commits. Their board timestamps are
 capture times, not original development dates. Source commits retain actual dates.
 Done means implementation complete on the draft PR branch, not merged or released.
@@ -29,8 +30,7 @@ Use explicit user approval for publishing or changes outside the requested scope
 
 The recorded principles reflect user instructions from this task: protect live
 AWS data, use existing credentials, preserve types, expose limits and keep the
-local interface useful and accessible. Platform/framework choices for T1 remain
-open. Live AWS verification and the DynamoDB Local GSI issue remain tracked risks.
+local interface useful and accessible. T1 uses Electron and a local VS Code webview with a shared bundled Python service. Live AWS verification and the DynamoDB Local GSI issue remain tracked risks.
 
 ## Setup health and limitations
 

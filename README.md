@@ -1,3 +1,7 @@
+> **Desktop and VS Code preview:** Bundled local installers and a VS Code extension
+> are available to build. See [installation and upgrade instructions](docs/installation.md)
+> for artifacts, migration, platform validation and preview signing status.
+
 # DynamoDB Tools
 
 A small, considered workspace for DynamoDB Local. Browse and query tables, edit

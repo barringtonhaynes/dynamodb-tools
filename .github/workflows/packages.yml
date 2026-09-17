@@ -1,0 +1,71 @@
+name: Installable packages
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "app/**"
+      - "packaging/**"
+      - "scripts/**"
+      - "tests/packaging/**"
+      - "tests/test_installed_runtime.py"
+      - "*requirements*.txt"
+      - "package*.json"
+      - ".github/workflows/packages.yml"
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: darwin-arm64
+            desktop: --mac --arm64
+            executable: dynamodb-tools-service
+          - os: macos-15-intel
+            target: darwin-x64
+            desktop: --mac --x64
+            executable: dynamodb-tools-service
+          - os: windows-latest
+            target: win32-x64
+            desktop: --win --x64
+            executable: dynamodb-tools-service.exe
+          - os: ubuntu-latest
+            target: linux-x64
+            desktop: --linux --x64
+            executable: dynamodb-tools-service
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: python -m pip install -r requirements-build.txt -r requirements-dev.txt
+      - run: npm ci
+      - run: python -m pytest -q
+      - run: npm run check && npm run check:hosts
+      - run: python scripts/build-runtime.py
+      - name: Check the frozen service
+        shell: bash
+        run: node -e "process.env.TEST_SERVICE=require('node:path').resolve('build/runtime/service/${{ matrix.executable }}');process.exit(require('node:child_process').spawnSync(process.execPath,['--test','tests/packaging/service.test.cjs'],{stdio:'inherit',env:process.env}).status)"
+      - run: npm run package:desktop -- ${{ matrix.desktop }}
+      - run: npm run package:vscode
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamodb-tools-${{ matrix.target }}
+          path: |
+            dist/desktop/*.dmg
+            dist/desktop/*.zip
+            dist/desktop/*.exe
+            dist/desktop/*.AppImage
+            dist/desktop/*.deb
+            dist/*.vsix
+            build/runtime/build-info.json
+          if-no-files-found: error

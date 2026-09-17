@@ -46,7 +46,7 @@ function itemContractKey() {
 }
 function readItemContract() {
   try {
-    return localStorage.getItem(itemContractKey()) || "";
+    return workspaceStorage.getItem(itemContractKey()) || "";
   } catch {
     return "";
   }
@@ -203,8 +203,12 @@ async function insightsAction(name, target) {
     const text = document.getElementById("item-schema").value;
     // Validate schema and the current draft before persisting the contract.
     await syncItemEditor();
-    localStorage.setItem(itemContractKey(), text);
-    toast("Item schema saved for this table in this browser.");
+    await workspaceStorage.setItem(itemContractKey(), text);
+    toast(
+      workspaceStorage.installed
+        ? "Item schema saved for this table on this computer."
+        : "Item schema saved for this table in this browser.",
+    );
   } else return false;
   return true;
 }

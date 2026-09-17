@@ -248,3 +248,12 @@ $RECYCLE.BIN/
 # Browser validation (not needed by the runtime container)
 node_modules/
 test-results/
+
+# Generated installable distributions
+packaging/vscode/service/
+packaging/vscode/static/
+packaging/vscode/host.cjs
+packaging/vscode/LICENSE
+*.vsix
+.vscode-test/
+packaging/vscode/icon.png

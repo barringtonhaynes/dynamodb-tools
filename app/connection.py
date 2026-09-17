@@ -117,7 +117,7 @@ def connection_info(dynamodb_client, config=None):
 def read_request(method, path):
     if method in {"GET", "HEAD", "OPTIONS"}:
         return True
-    if method == "PUT" and path == "/api/connection":
+    if method == "PUT" and path in {"/api/connection", "/api/local/definition"}:
         return True
     if method != "POST":
         return False

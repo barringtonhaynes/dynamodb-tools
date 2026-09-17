@@ -1,0 +1,47 @@
+{
+  "name": "dynamodb-tools",
+  "displayName": "DynamoDB Tools",
+  "description": "A local DynamoDB workspace with safe AWS access, a bundled service, queries, Streams and lossless item editing.",
+  "version": "0.2.0",
+  "publisher": "barringtonhaynes",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/barringtonhaynes/dynamodb-tools"
+  },
+  "main": "./extension.cjs",
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": {
+      "supported": false
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "dynamodbTools.open",
+        "title": "DynamoDB Tools: Open Console"
+      },
+      {
+        "command": "dynamodbTools.restart",
+        "title": "DynamoDB Tools: Restart Console"
+      },
+      {
+        "command": "dynamodbTools.stop",
+        "title": "DynamoDB Tools: Stop Console"
+      }
+    ]
+  },
+  "icon": "icon.png"
+}

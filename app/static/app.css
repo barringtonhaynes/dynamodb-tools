@@ -2598,3 +2598,32 @@ meter {
     width: 100%;
   }
 }
+
+[hidden] {
+  display: none !important;
+}
+.workspace-transfer {
+  margin-top: 24px;
+}
+.workspace-transfer .panel-body {
+  padding-top: 8px;
+}
+
+/* VS Code injects body styles; keep the console's own accessible palette. */
+body.vscode-dark,
+body.vscode-light,
+body.vscode-high-contrast,
+body.vscode-high-contrast-light {
+  color: var(--ink);
+  background: var(--bg);
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+body.vscode-dark code,
+body.vscode-light code,
+body.vscode-high-contrast code,
+body.vscode-high-contrast-light code {
+  color: inherit;
+  background: transparent;
+}
